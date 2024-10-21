@@ -18,7 +18,7 @@ def dice_score(pred, targs):
     return 2. * (pred*targs).sum() / (pred+targs).sum()
 
 
-#We define the anomaly map as the absolute difference between the original image and the generated healthy reconstruction. We sum up over all channels (4 different MR sequences):
+#We define the anomaly map as the absolute difference between the original image and the generated healthy reconstruction. We sum up over all channels (3 different MR sequences):
 
 difftot=abs(original-healthyreconstruction).sum(dim=0)
 

@@ -47,6 +47,7 @@ def main():
     while len(all_images) * args.batch_size < args.num_samples:
         model_kwargs = {}
         if args.class_cond:
+            ## [1,2) --> try to create image in class 1 (tumor)
             classes = th.randint(
                 low=1, high=2, size=(args.batch_size,), device=dist_util.dev()
             )
@@ -57,12 +58,12 @@ def main():
         )
         sample = sample_fn(
             model,
-            (args.batch_size, 4 , args.image_size, args.image_size),
+            (args.batch_size, 3 , args.image_size, args.image_size), # 3 channels
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
         )
         sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-        sample = sample.permute(0, 2, 3, 1)
+        sample = sample.permute(0, 2, 3, 1) # (batch_size, C, H, W)
         sample = sample.contiguous()
         print('sample', sample.shape)
         s=th.tensor(sample)

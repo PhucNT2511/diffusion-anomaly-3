@@ -42,7 +42,7 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
-        dataset='brats',
+        dataset='camelyon',
         max_L=1000
     ):
         self.model = model
@@ -166,7 +166,7 @@ class TrainLoop:
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
-            if self.dataset=='brats':
+            if self.dataset=='camelyon':
                 try:
                     batch, cond, label, _ = next(self.iterdatal)
                 except:

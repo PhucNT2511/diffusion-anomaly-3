@@ -10,7 +10,7 @@ import os
 import sys
 sys.path.append("..")
 sys.path.append(".")
-from guided_diffusion.bratsloader import BRATSDataset
+from guided_diffusion.camelyonloader import CAMELYONDataset
 import torch.nn.functional as F
 import numpy as np
 import torch as th
@@ -43,21 +43,21 @@ def main():
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
-    if args.dataset=='brats':
-      ds = BRATSDataset(args.data_dir, mode="val", test_flag=True)
-      datal = th.utils.data.DataLoader(
+    if args.dataset=='camelyon':
+        ds = CAMELYONDataset(args.data_dir, mode="val", test_flag=True)
+        datal = th.utils.data.DataLoader(
         ds,
         batch_size=args.batch_size,
         shuffle=False)
     
     elif args.dataset=='chexpert':
-     data = load_data(
+        data = load_data(
          data_dir=args.data_dir,
          batch_size=args.batch_size,
          image_size=args.image_size,
          class_cond=True,
      )
-     datal = iter(data)
+        datal = iter(data)
     model.to(dist_util.dev())
     print(args.model_path)
     model.load_state_dict(
@@ -111,11 +111,11 @@ def main():
         model_kwargs = {}
      #   img = next(data)  # should return an image from the dataloader "data"
         print('img', img[0].shape, img[1])
-        if args.dataset=='brats':
-        #   Labelmask = th.where(img[2] > 0, 1, 0)
-        #   number=img[4][0]
-          if img[2]==0:
-              continue    #take only diseased images as input
+        if args.dataset=='camelyon':
+        #   Labelmask = th.where(img[2] > 0, 1, 0) - at position 2
+        #   number=img[3][0]
+            if img[2]==0:
+                continue    #take only diseased images as input
               
 #           viz.image(visualize(img[0][0, 0, ...]), opts=dict(caption="img input 0"))
 #           viz.image(visualize(img[0][0, 1, ...]), opts=dict(caption="img input 1"))
@@ -124,9 +124,9 @@ def main():
 #           viz.image(visualize(img[2][0, ...]), opts=dict(caption="ground truth"))
         else:
 #           viz.image(visualize(img[0][0, ...]), opts=dict(caption="img input"))
-          print('img1', img[1])
-          number=img[1]["path"]
-          print('number', number)
+            print('img1', img[1])
+            number=img[1]["path"]
+            print('number', number)
 
         if args.class_cond:
             classes = th.randint(
@@ -143,7 +143,7 @@ def main():
         start.record()
         sample, x_noisy, org = sample_fn(
             model_fn,
-            (args.batch_size, 4, args.image_size, args.image_size), img, org=img,
+            (args.batch_size, 3, args.image_size, args.image_size), img, org=img,
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
             cond_fn=cond_fn,
@@ -154,46 +154,41 @@ def main():
         th.cuda.synchronize()
         th.cuda.current_stream().synchronize()
         sample *= 2
-        sample = iwt(
-                    sample[:, :4], sample[:, 4:8], sample[:, 8:12], sample[:, 12:16])
+        sample = iwt( sample[:, :3], sample[:, 3:6], sample[:, 6:9], sample[:, 9:12])
         sample = sample.cpu()
         org = org.cpu()
         print('time for 1000', start.elapsed_time(end))
 
-        if args.dataset=='brats':
-           difftot=abs(org[0, :4,...]-sample[0, ...]).sum(dim=0)
+        if args.dataset == 'camelyon':
+            # Tính toán sự khác biệt (difftot)
+            difftot = abs(org[0, :3, ...] - sample[0, ...]).sum(dim=0)
 
-           plt.figure(figsize=(12, 8))
+            plt.figure(figsize=(18, 6))  # Tăng kích thước để chứa ba hình
 
-           plt.subplot(231)
-           plt.imshow(visualize(sample[0,0, ...]), cmap='gray')
-           plt.title('Image flair')
-           plt.subplot(232)
-           plt.imshow(visualize(sample[0,1, ...]), cmap='gray')
-           plt.title('Image t1')
-           plt.subplot(233)
-           plt.imshow(visualize(sample[0,2, ...]), cmap='gray')
-           plt.title('Image t1ce')
-           plt.subplot(234)
-           plt.imshow(visualize(sample[0,3, ...]), cmap='gray')
-           plt.title('Image t2')
-           plt.subplot(235)
-           plt.imshow(visualize(difftot))
-           plt.title('Prediction')
-           plt.subplot(235)
-           plt.imshow(visualize(img[3][0, ...]))
-           plt.title('Groundtruth')
-           plt.show()
-#           viz.image(visualize(sample[0,0, ...]), opts=dict(caption="sampled output0"))
-#           viz.image(visualize(sample[0,1, ...]), opts=dict(caption="sampled output1"))
-#           viz.image(visualize(sample[0,2, ...]), opts=dict(caption="sampled output2"))
-#           viz.image(visualize(sample[0,3, ...]), opts=dict(caption="sampled output3"))
-#           viz.heatmap(visualize(difftot), opts=dict(caption="difftot"))
+            # Vẽ ground truth
+            plt.subplot(1, 3, 1)
+            groundtruth = org[2][0, ...]  # Lấy ground truth từ hình ảnh đầu vào
+            plt.imshow(visualize(groundtruth), cmap='gray')
+            plt.title('Ground Truth')
+
+            # Vẽ sample
+            for i in range(3):
+                plt.subplot(1, 3, i + 1)
+                plt.imshow(visualize(sample[0, i, ...]), cmap='gray')
+                plt.title(f'Sample Image {i + 1}')
+            
+            # Vẽ difftot
+            plt.subplot(1, 3, 3)
+            plt.imshow(visualize(difftot), cmap='gray')  # Vẽ difftot
+            plt.title('Difference Total (difftot)')
+
+            plt.show()
+
           
         elif args.dataset=='chexpert':
 #           viz.image(visualize(sample[0, ...]), opts=dict(caption="sampled output"+str(name)))
-          diff=abs(visualize(org[0, 0,...])-visualize(sample[0,0, ...]))
-          diff=np.array(diff.cpu())
+            diff=abs(visualize(org[0, 0,...])-visualize(sample[0,0, ...]))
+            diff=np.array(diff.cpu())
 #           viz.heatmap(np.flipud(diff), opts=dict(caption="diff"))
 
 
@@ -230,7 +225,7 @@ def create_argparser():
         classifier_path="",
         classifier_scale=100,
         noise_level=500,
-        dataset='brats'
+        dataset='camelyon'
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())

@@ -6,7 +6,7 @@ import argparse
 import torch as th
 sys.path.append("..")
 sys.path.append(".")
-from guided_diffusion.bratsloader import BRATSDataset
+from guided_diffusion.camelyonloader import CAMELYONDataset
 from guided_diffusion import dist_util, logger
 from guided_diffusion.image_datasets import load_data
 from guided_diffusion.resample import create_named_schedule_sampler
@@ -35,8 +35,8 @@ def main():
 
     logger.log("creating data loader...")
 
-    if args.dataset == 'brats':
-        ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False)
+    if args.dataset == 'camelyon':
+        ds = CAMELYONDataset(mode="train", test_flag=False)
         datal = th.utils.data.DataLoader(
             ds,
             batch_size=args.batch_size,
@@ -89,7 +89,7 @@ def create_argparser():
         resume_checkpoint='',
         use_fp16=False,
         fp16_scale_growth=1e-3,
-        dataset='brats',
+        dataset='camelyon',
         max_L=1000,
         fold=1
     )

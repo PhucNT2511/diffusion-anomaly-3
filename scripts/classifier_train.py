@@ -7,7 +7,7 @@ import os
 import sys
 sys.path.append("..")
 sys.path.append(".")
-from guided_diffusion.bratsloader import BRATSDataset
+from guided_diffusion.camelyonloader import CAMELYONDataset
 # from guided_diffusion.litsloader import LiTSDataset
 
 import blobfile as bf
@@ -92,9 +92,9 @@ def main():
         
     logger.log("creating data loader...")
 
-    if args.dataset == 'brats':
-        print("Training on BRATS-20 dataset")
-        ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
+    if args.dataset == 'camelyon':
+        print("Training on CAMELYON-16 dataset")
+        ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform)
         datal = th.utils.data.DataLoader(
             ds,
             batch_size=args.batch_size,
@@ -112,7 +112,7 @@ def main():
     #     data = iter(datal)
 
     try:
-        val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
+        val_ds = CAMELYONDataset(mode="val", test_flag=False)
         val_datal = th.utils.data.DataLoader(
             val_ds,
             batch_size=args.batch_size,
@@ -317,7 +317,7 @@ def create_argparser():
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
-        dataset='brats',
+        dataset='camelyon',
         max_L=1000,
         fold=1,
         transform=False,

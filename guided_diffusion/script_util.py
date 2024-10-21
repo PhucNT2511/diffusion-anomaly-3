@@ -21,7 +21,7 @@ def diffusion_defaults():
         predict_xstart=False,
         rescale_timesteps=False,
         rescale_learned_sigmas=False,
-        dataset='brats'
+        dataset='camelyon'
     )
 
 
@@ -39,7 +39,7 @@ def classifier_defaults():
         classifier_resblock_updown=True,  # False
         classifier_pool="spatial",
         classifier_dropout=0.0,
-        dataset='brats'
+        dataset='camelyon'
     )
 
 
@@ -150,7 +150,7 @@ def create_model(
     resblock_updown=False,
     use_fp16=False,
     use_new_attention_order=False,
-    dataset='brats'
+    dataset='camelyon'
 ):
     if channel_mult == "":
         if image_size == 512:
@@ -170,8 +170,8 @@ def create_model(
     for res in attention_resolutions.split(","):
         attention_ds.append(image_size // int(res))
         
-    if dataset=='brats':
-      number_in_channels=4
+    if dataset=='camelyon':
+      number_in_channels=3
     else:
       number_in_channels=1
     print('numberinchannels', number_in_channels)
@@ -268,8 +268,8 @@ def create_classifier(
     attention_ds = []
     for res in classifier_attention_resolutions.split(","):
         attention_ds.append(image_size // int(res))
-    if dataset=='brats':
-      number_in_channels=4
+    if dataset=='camelyon':
+      number_in_channels=3
     else:
       number_in_channels=1
     print('number_in_channels classifier', number_in_channels)
