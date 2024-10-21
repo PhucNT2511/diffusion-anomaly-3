@@ -310,7 +310,7 @@ def create_argparser():
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=False,
-        batch_size=4,
+        batch_size=2,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",
@@ -319,7 +319,6 @@ def create_argparser():
         save_interval=10000,
         dataset='camelyon',
         max_L=1000,
-        fold=1,
         transform=False,
     )
     defaults.update(classifier_and_diffusion_defaults())
