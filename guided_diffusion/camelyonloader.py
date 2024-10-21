@@ -13,6 +13,11 @@ class CAMELYONDataset(torch.utils.data.Dataset):
     def __init__(self, mode="train", test_flag=False, transforms=None):
     
         super().__init__()
+        self.transforms = transforms
+        if self.transforms:
+            print("Transform for data augmentation.")
+        else:
+            print("No data augmentation")
         self.datapaths = []
         
         if (mode == "val") and (test_flag==False):
