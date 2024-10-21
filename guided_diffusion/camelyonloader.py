@@ -6,8 +6,8 @@ import pickle
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-data_path = '/kaggle/input/camelyon'
-
+#data_path = '/kaggle/input/camelyon'
+data_path = '/kaggle/input/camelyon-data-2'
 
 class CAMELYONDataset(torch.utils.data.Dataset):
     def __init__(self, mode="train", test_flag=False, transforms=None):
