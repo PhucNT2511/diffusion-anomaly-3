@@ -30,14 +30,14 @@ def classifier_defaults():
     Defaults for classifier models.
     """
     return dict(
-        image_size=64,
+        image_size=256,  ###################### image_size = 64?? ####################
         classifier_use_fp16=False,
         classifier_width=128,
         classifier_depth=2,
         classifier_attention_resolutions="32,16,8",  # 16
         classifier_use_scale_shift_norm=True,  # False
         classifier_resblock_updown=True,  # False
-        classifier_pool="spatial",
+        classifier_pool="spatial", ############################ SPATIAL
         classifier_dropout=0.0,
         dataset='camelyon'
     )
@@ -48,8 +48,8 @@ def model_and_diffusion_defaults():
     Defaults for image training.
     """
     res = dict(
-        image_size=64,
-        num_channels=128,
+        image_size=256, #####################
+        num_channels=128, #####################
         num_res_blocks=2,
         num_heads=4,
         num_heads_upsample=-1,
@@ -257,7 +257,7 @@ def create_classifier(
     dataset,
 ):
     if image_size == 256: ####### nhân số lượng kênh ở mỗi tầng Unet
-        channel_mult = (1, 1, 2, 2, 4, 4)
+        channel_mult = (1, 1, 2, 2, 4, 4) ############################
     elif image_size == 128:
         channel_mult = (1, 1, 2, 3, 4)
     elif image_size == 64:

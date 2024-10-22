@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from guided_diffusion.fp16_util import convert_module_to_f16, convert_module_to_f32
 from guided_diffusion.nn import (
     checkpoint,
-    conv_nd,
+    conv_nd, ############################
     linear,
     avg_pool_nd,
     zero_module,
@@ -62,6 +62,7 @@ class TimestepBlock(nn.Module):
         """
 
 
+## Embedding data x and 
 class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     """
     A sequential module that passes timestep embeddings to the children that
@@ -434,7 +435,7 @@ class UNetModel(nn.Module):
         dropout=0,
         channel_mult=(1, 2, 4, 8),
         conv_resample=True,
-        dims=2,
+        dims=2, ##
         num_classes=None,
         use_checkpoint=False,
         use_fp16=False,
@@ -475,7 +476,9 @@ class UNetModel(nn.Module):
 
         if self.num_classes is not None:
             self.label_emb = nn.Embedding(num_classes, time_embed_dim)
-
+        
+        
+        ## just a Con2vLayer from in_channels to model_channels, dim --> 2D, 3D, 1D ...
         self.input_blocks = nn.ModuleList(
             [
                 TimestepEmbedSequential(
@@ -700,7 +703,7 @@ class EncoderUNetModel(nn.Module):
         image_size,
         in_channels,
         model_channels,
-        out_channels,
+        out_channels, #################### currently 2
         num_res_blocks,
         attention_resolutions,
         dropout=0,
@@ -724,7 +727,7 @@ class EncoderUNetModel(nn.Module):
 
         self.in_channels = in_channels
         self.model_channels = model_channels
-        self.out_channels = out_channels
+        self.out_channels = out_channels ### 2
         self.num_res_blocks = num_res_blocks
         self.attention_resolutions = attention_resolutions
         self.dropout = dropout
@@ -736,7 +739,7 @@ class EncoderUNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        time_embed_dim = model_channels * 4
+        time_embed_dim = model_channels * 4 # 3*4 = 12
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
             nn.SiLU(),
@@ -853,6 +856,7 @@ class EncoderUNetModel(nn.Module):
                     (image_size // ds), ch, num_head_channels, out_channels
                 ),
             )
+        #################################################
         elif pool == "spatial":
             print('spatial')
           #  self.out = nn.Linear(self._feature_size, self.out_channels)
