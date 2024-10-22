@@ -1080,6 +1080,7 @@ class GaussianDiffusion:
             ]:
                 B, C = x_t.shape[:2]
                 assert model_output.shape == (B, C * 2, *x_t.shape[2:])
+                print('model_output.shape ',model_output.shape) ############
                 model_output, model_var_values = th.split(model_output, C, dim=1)
                 # Learn the variance using the variational bound, but don't let
                 # it affect our mean prediction.
@@ -1103,6 +1104,10 @@ class GaussianDiffusion:
                 ModelMeanType.START_X: x_start,
                 ModelMeanType.EPSILON: noise,
             }[self.model_mean_type]
+            ########################################
+            print('model_output.shape ',model_output.shape)
+            print('target.shape ',target.shape)
+            print('x_start.shape ',x_start.shape)
             assert model_output.shape == target.shape == x_start.shape
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
