@@ -282,6 +282,7 @@ class GaussianDiffusion:
         assert t.shape == (B,)
         model_output = model(x, self._scale_timesteps(t), **model_kwargs)
         
+
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
             assert model_output.shape == (B, C * 2, *x.shape[2:])
             model_output, model_var_values = th.split(model_output, C, dim=1)
@@ -1040,6 +1041,8 @@ class GaussianDiffusion:
 
 
    # def training_losses(self, model, x_start, t, model_kwargs=None, noise=None):
+   ##############################################33
+   ############## from train.util, it's transmitted micro_cond for model_kwargs
     def training_losses(self, model,  x_start, t, model_kwargs=None, noise=None):
         """
         Compute training losses for a single timestep.
@@ -1047,13 +1050,13 @@ class GaussianDiffusion:
         :param x_start: the [N x C x ...] tensor of inputs.
         :param t: a batch of timestep indices.
         :param model_kwargs: if not None, a dict of extra keyword arguments to
-            pass to the model. This can be used for conditioning.
+            pass to the model. This can be used for CONDITIONING.
         :param noise: if specified, the specific Gaussian noise to try to remove.
         :return: a dict with the key "loss" containing a tensor of shape [N].
                  Some mean or variance settings may also have other keys.
         """
         if model_kwargs is None:
-            model_kwargs = {}
+            model_kwargs = {} ##############make condition is None or Not
         if noise is None:
             noise = th.randn_like(x_start)
         x_t = self.q_sample(x_start, t, noise=noise)
@@ -1071,8 +1074,13 @@ class GaussianDiffusion:
             )["output"]
             if self.loss_type == LossType.RESCALED_KL:
                 terms["loss"] *= self.num_timesteps
+
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
-            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
+
+            print("condition: ",**model_kwargs) ################
+            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs) #####
+
+            print('model_output.shape ',model_output.shape)
 
             if self.model_var_type in [
                 ModelVarType.LEARNED,
@@ -1081,6 +1089,8 @@ class GaussianDiffusion:
                 B, C = x_t.shape[:2]
                 assert model_output.shape == (B, C * 2, *x_t.shape[2:])
                 print('model_output.shape ',model_output.shape) ############
+
+                ##########split into 2 components
                 model_output, model_var_values = th.split(model_output, C, dim=1)
                 # Learn the variance using the variational bound, but don't let
                 # it affect our mean prediction.

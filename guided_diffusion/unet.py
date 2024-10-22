@@ -634,7 +634,7 @@ class UNetModel(nn.Module):
         self.middle_block.apply(convert_module_to_f32)
         self.output_blocks.apply(convert_module_to_f32)
 
-    def forward(self, x, timesteps, y=None):
+    def forward(self, x, timesteps, y=None): ############## y is transmitted
         """
         Apply the model to an input batch.
 
@@ -644,13 +644,13 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
 
-        '''
+        ###################
         print("y is ",y)
         print("self.num_classes is ",self.num_classes)
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
-        '''
+        
 
         hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
