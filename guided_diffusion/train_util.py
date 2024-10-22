@@ -205,6 +205,7 @@ class TrainLoop:
 
             ############### micro_cond contains class conditions
             micro = batch[i : i + self.microbatch].to(dist_util.dev())
+            ################ key - value : y = 1/ y = 0...
             micro_cond = {
                 k: v[i : i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
