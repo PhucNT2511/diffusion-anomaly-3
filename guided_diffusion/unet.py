@@ -645,8 +645,8 @@ class UNetModel(nn.Module):
         """
 
         ###################
-        print("y is ",y)
-        print("self.num_classes is ",self.num_classes)
+        #print("y is ",y)
+        #print("self.num_classes is ",self.num_classes)
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"

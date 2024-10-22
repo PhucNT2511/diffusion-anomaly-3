@@ -1077,10 +1077,10 @@ class GaussianDiffusion:
 
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
 
-            print("condition: ", str(model_kwargs)) ################
+            #print("condition: ", str(model_kwargs)) ################
             model_output = model(x_t, self._scale_timesteps(t), **model_kwargs) ##### forward in Unet
 
-            print('model_output.shape ',model_output.shape)
+            #print('model_output.shape ',model_output.shape)
 
             if self.model_var_type in [
                 ModelVarType.LEARNED,
@@ -1088,7 +1088,7 @@ class GaussianDiffusion:
             ]:
                 B, C = x_t.shape[:2]
                 assert model_output.shape == (B, C * 2, *x_t.shape[2:])
-                print('model_output.shape ',model_output.shape) ############
+               #print('model_output.shape ',model_output.shape) ############
 
                 ##########split into 2 components
                 model_output, model_var_values = th.split(model_output, C, dim=1)
@@ -1115,9 +1115,9 @@ class GaussianDiffusion:
                 ModelMeanType.EPSILON: noise,
             }[self.model_mean_type]
             ########################################
-            print('model_output.shape ',model_output.shape)
-            print('target.shape ',target.shape)
-            print('x_start.shape ',x_start.shape)
+            #print('model_output.shape ',model_output.shape)
+            #print('target.shape ',target.shape)
+            #print('x_start.shape ',x_start.shape)
             assert model_output.shape == target.shape == x_start.shape
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
