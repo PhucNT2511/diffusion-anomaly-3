@@ -15,9 +15,9 @@ import math
 # viz = Visdom(port=8850)
 import numpy as np
 import torch as th
-from .train_util import visualize
-from .nn import mean_flat
-from .losses import normal_kl, discretized_gaussian_log_likelihood
+from guided_diffusion.train_util import visualize
+from guided_diffusion.nn import mean_flat
+from guided_diffusion.losses import normal_kl, discretized_gaussian_log_likelihood
 from scipy import ndimage
 from torchvision import transforms
 import matplotlib.pyplot as plt

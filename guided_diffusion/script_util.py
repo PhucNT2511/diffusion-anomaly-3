@@ -1,9 +1,9 @@
 import argparse
 import inspect
 
-from . import gaussian_diffusion as gd
-from .respace import SpacedDiffusion, space_timesteps
-from .unet import SuperResModel, UNetModel, EncoderUNetModel
+from guided_diffusion import gaussian_diffusion as gd
+from guided_diffusion.respace import SpacedDiffusion, space_timesteps
+from guided_diffusion.unet import SuperResModel, UNetModel, EncoderUNetModel
 
 NUM_CLASSES = 2
 
@@ -57,7 +57,7 @@ def model_and_diffusion_defaults():
         attention_resolutions="16,8",
         channel_mult="",
         dropout=0.0,
-        class_cond=False,
+        class_cond=False, ################ class_cond = False in default
         use_checkpoint=False,
         use_scale_shift_norm=True,
         resblock_updown=False,
@@ -186,7 +186,7 @@ def create_model(
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
         channel_mult=channel_mult,
-        num_classes=(NUM_CLASSES if class_cond else None),
+        num_classes=(NUM_CLASSES if class_cond else None),  ############
         use_checkpoint=use_checkpoint,
         use_fp16=use_fp16,
         num_heads=num_heads,
@@ -256,7 +256,7 @@ def create_classifier(
     classifier_dropout,
     dataset,
 ):
-    if image_size == 256:
+    if image_size == 256: ####### nhân số lượng kênh ở mỗi tầng Unet
         channel_mult = (1, 1, 2, 2, 4, 4)
     elif image_size == 128:
         channel_mult = (1, 1, 2, 3, 4)

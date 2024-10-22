@@ -8,10 +8,10 @@ import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
-from . import dist_util, logger
-from .fp16_util import MixedPrecisionTrainer
-from .nn import update_ema
-from .resample import LossAwareSampler, UniformSampler
+from guided_diffusion import dist_util, logger
+from guided_diffusion.fp16_util import MixedPrecisionTrainer
+from guided_diffusion.nn import update_ema
+from guided_diffusion.resample import LossAwareSampler, UniformSampler
 # from visdom import Visdom
 # viz = Visdom(port=8850)
 

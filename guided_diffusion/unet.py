@@ -6,8 +6,8 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .fp16_util import convert_module_to_f16, convert_module_to_f32
-from .nn import (
+from guided_diffusion.fp16_util import convert_module_to_f16, convert_module_to_f32
+from guided_diffusion.nn import (
     checkpoint,
     conv_nd,
     linear,
@@ -643,6 +643,9 @@ class UNetModel(nn.Module):
         :param y: an [N] Tensor of labels, if class-conditional.
         :return: an [N x C x ...] Tensor of outputs.
         """
+
+        print("y is ",y)
+        print("self.num_classes is ",self.num_classes)
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"

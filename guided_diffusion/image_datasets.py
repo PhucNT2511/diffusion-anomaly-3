@@ -7,7 +7,7 @@ import numpy as np
 import torch as th
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from .train_util import visualize
+from guided_diffusion.train_util import visualize
 # from visdom import Visdom
 # viz = Visdom(port=8850)
 from scipy import ndimage
