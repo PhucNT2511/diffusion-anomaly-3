@@ -644,11 +644,13 @@ class UNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
 
+        '''
         print("y is ",y)
         print("self.num_classes is ",self.num_classes)
         assert (y is not None) == (
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
+        '''
 
         hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
