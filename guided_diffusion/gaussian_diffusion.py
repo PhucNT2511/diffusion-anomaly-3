@@ -1078,7 +1078,7 @@ class GaussianDiffusion:
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
 
             print("condition: ", str(model_kwargs)) ################
-            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs) #####
+            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs) ##### forward in Unet
 
             print('model_output.shape ',model_output.shape)
 
