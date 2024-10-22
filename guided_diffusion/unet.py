@@ -718,7 +718,7 @@ class EncoderUNetModel(nn.Module):
         use_scale_shift_norm=False,
         resblock_updown=False,
         use_new_attention_order=False,
-        pool="adaptive",
+        pool="adaptive", ###############Bù nhìn thôi, thật ra là attention
     ):
         super().__init__()
 

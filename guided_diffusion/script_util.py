@@ -32,12 +32,12 @@ def classifier_defaults():
     return dict(
         image_size=256,  ###################### image_size = 64?? ####################
         classifier_use_fp16=False,
-        classifier_width=128,
-        classifier_depth=2,
+        classifier_width=32, ################# 128
+        classifier_depth=3, ################### 2
         classifier_attention_resolutions="32,16,8",  # 16
         classifier_use_scale_shift_norm=True,  # False
         classifier_resblock_updown=True,  # False
-        classifier_pool="spatial", ############################ SPATIAL
+        classifier_pool="attention", ############################ SPATIAL
         classifier_dropout=0.0,
         dataset='camelyon'
     )
