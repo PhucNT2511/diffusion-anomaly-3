@@ -57,7 +57,7 @@ def model_and_diffusion_defaults():
         attention_resolutions="16,8",
         channel_mult="",
         dropout=0.0,
-        class_cond=True, ################ class_cond = False in default, previously
+        class_cond=False, ################ class_cond = False in default, previously
         use_checkpoint=False,
         use_scale_shift_norm=True,
         resblock_updown=False,
@@ -139,7 +139,7 @@ def create_model(
     num_res_blocks,
     channel_mult="",
     learn_sigma=False,
-    class_cond=True,
+    class_cond=False,
     use_checkpoint=False,
     attention_resolutions="16",
     num_heads=1,

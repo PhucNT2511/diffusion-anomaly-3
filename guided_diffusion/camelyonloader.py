@@ -51,8 +51,10 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         image = np.transpose(image, [2, 0, 1])
 
         label = 1 if np.sum(mask) > 0 else 0
+         
+        ####################### set cond = None
         cond = {}
-        cond['y'] = label
+        #cond['y'] = label 
 
         if self.transforms:
             image = self.transforms(torch.Tensor(image))
