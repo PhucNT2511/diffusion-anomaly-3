@@ -36,7 +36,7 @@ def main():
     logger.log("creating data loader...")
 
     if args.dataset == 'camelyon':
-        ds = CAMELYONDataset(mode="train", test_flag=False)
+        ds = CAMELYONDataset(mode="train", model='unet')
         datal = th.utils.data.DataLoader(
             ds,
             batch_size=args.batch_size,

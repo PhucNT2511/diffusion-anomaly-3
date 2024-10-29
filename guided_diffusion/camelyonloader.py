@@ -7,11 +7,11 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
 #data_path = '/kaggle/input/camelyon'
-data_path = '/kaggle/input/camelyon-data-2'
+data_path = '/kaggle/input/camelyon16/data'
 #data_path = 'D:/medical_DF/data_camelyon
 
 class CAMELYONDataset(torch.utils.data.Dataset):
-    def __init__(self, mode="train", test_flag=False, transforms=None):
+    def __init__(self, mode="train", test_flag = False, transforms=None, model = "unet"):
     
         super().__init__()
         self.transforms = transforms
@@ -21,22 +21,28 @@ class CAMELYONDataset(torch.utils.data.Dataset):
             print("No data augmentation")
         self.datapaths = []
         
-        if (mode == "val") and (test_flag==False):
-            paths = os.listdir(data_path +'/val_classifier')
+        if (model =="unet"):
+            paths = os.listdir(data_path +'/unet')
             for path in paths:
-                full_path = os.path.join(data_path + '/val_classifier', path)  # Kết hợp đường dẫn đầy đủ
+                full_path = os.path.join(data_path + '/unet', path)  # Kết hợp đường dẫn đầy đủ
                 self.datapaths.append(full_path)
 
-        if (mode == "train"):
-            paths = os.listdir(data_path +'/train')
-            for path in paths:
-                full_path = os.path.join(data_path + '/train', path)  # Kết hợp đường dẫn đầy đủ
-                self.datapaths.append(full_path)
+        if (model =="classifier"):
+            if (mode == "train"):
+                paths = os.listdir(data_path +'/classifier/train')
+                for path in paths:
+                    full_path = os.path.join(data_path + '/classifier/train', path)  # Kết hợp đường dẫn đầy đủ
+                    self.datapaths.append(full_path)    
+            if (mode == "val"):
+                paths = os.listdir(data_path +'/classifier/val')
+                for path in paths:
+                    full_path = os.path.join(data_path + '/classifier/val', path)  # Kết hợp đường dẫn đầy đủ
+                    self.datapaths.append(full_path)  
         
-        if (mode == "val") and (test_flag==True):
-            paths = os.listdir(data_path + '/val_all')  # Lấy danh sách các file/thư mục
+        if test_flag==True:
+            paths = os.listdir(data_path + '/test')  # Lấy danh sách các file/thư mục
             for path in paths:
-                full_path = os.path.join(data_path + '/val_all', path)  # Kết hợp đường dẫn đầy đủ
+                full_path = os.path.join(data_path + '/test', path)  # Kết hợp đường dẫn đầy đủ
                 self.datapaths.append(full_path)
 
     def __getitem__(self, idx):
