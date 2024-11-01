@@ -317,7 +317,7 @@ def create_argparser():
         batch_size=1,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="",
+        resume_checkpoint="checkpoint/classifier/model090000.pt",
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
