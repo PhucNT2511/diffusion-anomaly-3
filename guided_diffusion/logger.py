@@ -147,6 +147,7 @@ class CSVOutputFormat(KVWriter):
         self.file.close()
 
 
+# Việc dùng tensorboard sẽ tự động thêm hậu tố q0, q1, q2,... tức là queue khi thử nghiệm với nhiều giá trị mà vẫn cùng in ra train_acc@1,... 
 class TensorBoardOutputFormat(KVWriter):
     """
     Dumps key/value pairs into TensorBoard's numeric format.
