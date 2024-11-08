@@ -100,6 +100,7 @@ def main():
             batch_size=args.batch_size,
             shuffle=True)
         data = iter(datal)
+        print('train_datal_len: ',len(datal))
 
     # elif args.dataset == 'lits':
     #     print("Training on LiTS dataset")
@@ -118,6 +119,7 @@ def main():
             batch_size=args.batch_size,
             shuffle=True)
         val_data = iter(val_datal)
+        print('val_datal_len: ',len(val_datal))
     except:
         val_data = None
 
@@ -180,6 +182,7 @@ def main():
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
+        ## Calculate for 1 batch
         for i, (sub_batch, sub_labels, sub_t) in enumerate(
             split_microbatches(args.microbatch, batch, labels, t)
         ):
@@ -188,6 +191,7 @@ def main():
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none")
             losses = {}
+            # calculate loss & acc@1 in 1 batch of val and train set
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
                 logits, sub_labels, k=1, reduction="none"
@@ -197,7 +201,7 @@ def main():
             # )
             # print('acc', losses[f"{prefix}_acc@1"])
             log_loss_dict(diffusion, sub_t, losses)
-            loss = loss.mean()
+            loss = loss.mean() ## mean loss, but don't return this value
 #             if prefix=="train":
 #                 pass
 # #                 viz.line(X=th.ones((1, 1)).cpu() * step, Y=th.Tensor([loss]).unsqueeze(0).cpu(),
@@ -226,6 +230,7 @@ def main():
 
         return losses
 
+    #### every step 
     correct=0; total=0
     for step in range(args.iterations - resume_step):
         logger.logkv("step", step + resume_step)
@@ -237,13 +242,17 @@ def main():
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
-        losses = forward_backward_log(datal, data)
+        losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
 
-        correct+=losses["train_acc@1"].sum()
+        correct+=losses["train_acc@1"].sum() #
         total+=args.batch_size
-        acctrain=correct/total
+        if step % len(datal):
+            acctrain=correct/total
+            correct=0; total=0
+            print('mean training accuracy: ',acctrain)
 
         mp_trainer.optimize(opt)
+        # calculate val_accuracy & loss in all of validation dataset
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
