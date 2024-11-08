@@ -285,8 +285,8 @@ def main():
     dist.barrier()
 
     # Ensure the directory 'training_losses' exists
-    os.makedirs("training_losses", exist_ok=True)
-    os.makedirs("1000_step_validation", exist_ok=True)
+    os.makedirs("/kaggle/working/training_losses", exist_ok=True)
+    os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
 
     # Convert training_losses list to a NumPy array
     training_losses_array = np.array(training_losses)
@@ -297,8 +297,8 @@ def main():
     }
 
     # Save it as a .npy file
-    np.save("training_losses/training_losses.npy", training_losses_array)
-    np.save("1000_step_validation/1000_step_validation.npy", val_1000)
+    np.save("/kaggle/working/training_losses/training_losses.npy", training_losses_array)
+    np.save("/kaggle/working/1000_step_validation/1000_step_validation.npy", val_1000)
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
