@@ -96,9 +96,9 @@ def main():
         print("Training on CAMELYON-16 dataset")
         ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
         datal = th.utils.data.DataLoader(
-            ds,
-            batch_size=args.batch_size,
-            shuffle=True)
+                ds,
+                batch_size=args.batch_size,
+                shuffle=True)
         data = iter(datal)
         print('train_datal_len: ',len(datal))
 
@@ -249,7 +249,7 @@ def main():
 
         correct+=losses["train_acc@1"].sum() #
         total+=args.batch_size
-        if step % len(datal):
+        if (step % len(datal)==0):
             acctrain=correct/total
             correct=0; total=0
             print('mean training accuracy: ',acctrain)
