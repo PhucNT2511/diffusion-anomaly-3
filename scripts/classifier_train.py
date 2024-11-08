@@ -233,6 +233,8 @@ def main():
     #### every step 
     correct=0; total=0
     training_losses=[]
+    val_losses = []
+    val_accuracies = []
     for step in range(args.iterations - resume_step):
         logger.logkv("step", step + resume_step)
         logger.logkv(
@@ -261,6 +263,8 @@ def main():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
+                    val_losses.append(val_loss)
+                    val_accuracies.append(val_accuracy)
                     print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
                     model.train()
 
@@ -282,12 +286,19 @@ def main():
 
     # Ensure the directory 'training_losses' exists
     os.makedirs("training_losses", exist_ok=True)
+    os.makedirs("1000_step_validation", exist_ok=True)
 
     # Convert training_losses list to a NumPy array
     training_losses_array = np.array(training_losses)
 
+    val_1000 = {
+        'loss': np.array(val_losses),
+        'acc':np.array(val_accuracies),
+    }
+
     # Save it as a .npy file
     np.save("training_losses/training_losses.npy", training_losses_array)
+    np.save("1000_step_validation/1000_step_validation.npy", val_1000)
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
