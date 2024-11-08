@@ -232,6 +232,7 @@ def main():
 
     #### every step 
     correct=0; total=0
+    training_losses=[]
     for step in range(args.iterations - resume_step):
         logger.logkv("step", step + resume_step)
         logger.logkv(
@@ -250,6 +251,7 @@ def main():
             acctrain=correct/total
             correct=0; total=0
             print('mean training accuracy: ',acctrain)
+            training_losses.append(acctrain)
 
         mp_trainer.optimize(opt)
         # calculate val_accuracy & loss in all of validation dataset
@@ -277,6 +279,15 @@ def main():
         logger.log("saving model...")
         save_model(mp_trainer, opt, step + resume_step)
     dist.barrier()
+
+    # Ensure the directory 'training_losses' exists
+    os.makedirs("training_losses", exist_ok=True)
+
+    # Convert training_losses list to a NumPy array
+    training_losses_array = np.array(training_losses)
+
+    # Save it as a .npy file
+    np.save("training_losses/training_losses.npy", training_losses_array)
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
