@@ -253,7 +253,7 @@ def main():
             acctrain=correct/total
             correct=0; total=0
             print('mean training accuracy: ',acctrain)
-            training_losses.append(acctrain)
+            training_losses.append(acctrain.cpu().numpy())
 
         mp_trainer.optimize(opt)
         # calculate val_accuracy & loss in all of validation dataset
@@ -263,8 +263,8 @@ def main():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
-                    val_losses.append(val_loss)
-                    val_accuracies.append(val_accuracy)
+                    val_losses.append(val_loss.cpu().numpy())
+                    val_accuracies.append(val_accuracy.cpu().numpy())
                     print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
                     model.train()
 
