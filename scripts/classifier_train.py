@@ -253,7 +253,7 @@ def main():
             acctrain=correct/total
             correct=0; total=0
             print('mean training accuracy: ',acctrain)
-            training_losses.append(acctrain.cpu().numpy())
+            training_losses.append(acctrain)
 
         mp_trainer.optimize(opt)
         # calculate val_accuracy & loss in all of validation dataset
@@ -263,8 +263,8 @@ def main():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
-                    val_losses.append(val_loss.cpu().numpy())
-                    val_accuracies.append(val_accuracy.cpu().numpy())
+                    val_losses.append(val_loss)
+                    val_accuracies.append(val_accuracy)
                     print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
                     model.train()
 
@@ -289,11 +289,11 @@ def main():
     os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
 
     # Convert training_losses list to a NumPy array
-    training_losses_array = np.array(training_losses)
+    training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
 
     val_1000 = {
-        'loss': np.array(val_losses),
-        'acc':np.array(val_accuracies),
+        'loss': np.array([i.cpu().numpy() for i in val_losses]),
+        'acc':np.array([i.cpu().numpy() for i in val_accuracies]),
     }
 
     # Save it as a .npy file
