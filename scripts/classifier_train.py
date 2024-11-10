@@ -163,7 +163,7 @@ def main():
                 accuracies.append(accuracy.mean().item())
         print(f"Validation dataset size: {data_size}")
 
-        return np.mean(losses), np.mean(accuracies)
+        return np.mean(losses), np.mean(accuracies) # Transform to numpy
     
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
@@ -292,8 +292,8 @@ def main():
     training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
 
     val_1000 = {
-        'loss': np.array([i.cpu().numpy() for i in val_losses]),
-        'acc':np.array([i.cpu().numpy() for i in val_accuracies]),
+        'loss': np.array(val_losses),
+        'acc':np.array(val_accuracies),
     }
 
     # Save it as a .npy file
