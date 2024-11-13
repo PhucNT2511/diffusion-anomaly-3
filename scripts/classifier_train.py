@@ -96,10 +96,11 @@ def main():
         print("Training on CAMELYON-16 dataset")
         ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
         datal = th.utils.data.DataLoader(
-            ds,
-            batch_size=args.batch_size,
-            shuffle=True)
+                ds,
+                batch_size=args.batch_size,
+                shuffle=True)
         data = iter(datal)
+        print('train_datal_len: ',len(datal))
 
     # elif args.dataset == 'lits':
     #     print("Training on LiTS dataset")
@@ -118,6 +119,7 @@ def main():
             batch_size=args.batch_size,
             shuffle=True)
         val_data = iter(val_datal)
+        print('val_datal_len: ',len(val_datal))
     except:
         val_data = None
 
@@ -161,7 +163,7 @@ def main():
                 accuracies.append(accuracy.mean().item())
         print(f"Validation dataset size: {data_size}")
 
-        return np.mean(losses), np.mean(accuracies)
+        return np.mean(losses), np.mean(accuracies) # Transform to numpy
     
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
@@ -180,6 +182,7 @@ def main():
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
+        ## Calculate for 1 batch
         for i, (sub_batch, sub_labels, sub_t) in enumerate(
             split_microbatches(args.microbatch, batch, labels, t)
         ):
@@ -188,6 +191,7 @@ def main():
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none")
             losses = {}
+            # calculate loss & acc@1 in 1 batch of val and train set
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
                 logits, sub_labels, k=1, reduction="none"
@@ -197,7 +201,7 @@ def main():
             # )
             # print('acc', losses[f"{prefix}_acc@1"])
             log_loss_dict(diffusion, sub_t, losses)
-            loss = loss.mean()
+            loss = loss.mean() ## mean loss, but don't return this value
 #             if prefix=="train":
 #                 pass
 # #                 viz.line(X=th.ones((1, 1)).cpu() * step, Y=th.Tensor([loss]).unsqueeze(0).cpu(),
@@ -226,7 +230,11 @@ def main():
 
         return losses
 
+    #### every step 
     correct=0; total=0
+    training_losses=[]
+    val_losses = []
+    val_accuracies = []
     for step in range(args.iterations - resume_step):
         logger.logkv("step", step + resume_step)
         logger.logkv(
@@ -237,19 +245,26 @@ def main():
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
-        losses = forward_backward_log(datal, data)
+        losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
 
-        correct+=losses["train_acc@1"].sum()
+        correct+=losses["train_acc@1"].sum() #
         total+=args.batch_size
-        acctrain=correct/total
+        if (step % len(datal)==0):
+            acctrain=correct/total
+            correct=0; total=0
+            print('mean training accuracy: ',acctrain)
+            training_losses.append(acctrain)
 
         mp_trainer.optimize(opt)
+        # calculate val_accuracy & loss in all of validation dataset
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
+                    val_losses.append(val_loss)
+                    val_accuracies.append(val_accuracy)
                     print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
                     model.train()
 
@@ -268,6 +283,22 @@ def main():
         logger.log("saving model...")
         save_model(mp_trainer, opt, step + resume_step)
     dist.barrier()
+
+    # Ensure the directory 'training_losses' exists
+    os.makedirs("/kaggle/working/training_losses", exist_ok=True)
+    os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
+
+    # Convert training_losses list to a NumPy array
+    training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
+
+    val_1000 = {
+        'loss': np.array(val_losses),
+        'acc':np.array(val_accuracies),
+    }
+
+    # Save it as a .npy file
+    np.save("/kaggle/working/training_losses/training_losses.npy", training_losses_array)
+    np.save("/kaggle/working/1000_step_validation/1000_step_validation.npy", val_1000)
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
@@ -310,12 +341,12 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=150000,
+        iterations=200000,
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=16,
-        microbatch=2,
+        batch_size=4,
+        microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",
         log_interval=10,
