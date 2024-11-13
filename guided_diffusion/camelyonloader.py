@@ -60,7 +60,7 @@ class CAMELYONDataset(torch.utils.data.Dataset):
          
         ####################### set cond = None
         cond = {}
-        #cond['y'] = label 
+        cond['y'] = label 
 
         if self.transforms:
             image = self.transforms(torch.Tensor(image))
