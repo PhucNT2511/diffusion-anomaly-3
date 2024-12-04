@@ -61,7 +61,7 @@ def main():
     model = models.resnet50(pretrained = True)
 
     # Thay đổi lớp conv1 để chấp nhận đầu vào 1 kênh
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=True)
+    model.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=True)
 
     # Số lớp đầu ra chỉ là 2
     n_features = 2  # Số lớp bạn cần

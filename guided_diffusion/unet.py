@@ -886,9 +886,9 @@ class EncoderUNetModel(nn.Module):
         """
         Apply the model to an input batch.
 
-        :param x: an [N x C x W x H] Tensor of inputs.
+        :param x: an [N x C x W x H] Tensor of inputs. - [4x4x256x256]
         :param timesteps: a 1-D batch of timesteps.
-        :return: an [N x K] Tensor of outputs.
+        :return: an [N x K] Tensor of outputs. - K = 2 (2 neuron đầu ra)
         """
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
