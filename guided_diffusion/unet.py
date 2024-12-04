@@ -886,7 +886,7 @@ class EncoderUNetModel(nn.Module):
         """
         Apply the model to an input batch.
 
-        :param x: an [N x C x ...] Tensor of inputs.
+        :param x: an [N x C x W x H] Tensor of inputs.
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
         """

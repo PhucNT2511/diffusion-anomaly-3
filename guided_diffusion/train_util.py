@@ -317,7 +317,7 @@ def find_ema_checkpoint(main_checkpoint, step, rate):
         return path
     return None
 
-
+############ Calculate loss with 4-quantiles. 4*sub_t/num_steps (4 periods)
 def log_loss_dict(diffusion, ts, losses):
     for key, values in losses.items():
         logger.logkv_mean(key, values.mean().item())
