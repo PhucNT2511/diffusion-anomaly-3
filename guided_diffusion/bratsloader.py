@@ -39,8 +39,8 @@ class BRATSDataset(torch.utils.data.Dataset):
         else:
             print("No data augmentation")
             
-        data_split = np.load('/kaggle/working/diffusion-anomaly/data/brats/data_split.npz', allow_pickle=True)
-        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly/data/brats/meta_data.csv')
+        data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/data_split.npz', allow_pickle=True)
+        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/meta_data.csv')
         volume_ids = data_split[f'{mode}_folds'].item()[f'fold_{fold}']
         if not test_flag:
             self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
