@@ -248,7 +248,11 @@ def main():
 
         return losses
 
+#### every step 
     correct=0; total=0
+    training_losses=[]
+    val_losses = []
+    val_accuracies = []
     for step in range(args.iterations - resume_step):
         logger.logkv("step", step + resume_step)
         logger.logkv(
@@ -259,19 +263,26 @@ def main():
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
-        losses = forward_backward_log(datal, data)
+        losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
 
-        correct+=losses["train_acc@1"].sum()
+        correct+=losses["train_acc@1"].sum() #
         total+=args.batch_size
-        acctrain=correct/total
+        if (step % len(datal)==0):
+            acctrain=correct/total
+            correct=0; total=0
+            print('mean training accuracy: ',acctrain)
+            training_losses.append(acctrain)
 
         mp_trainer.optimize(opt)
+        # calculate val_accuracy & loss in all of validation dataset
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
+                    val_losses.append(val_loss)
+                    val_accuracies.append(val_accuracy)
                     print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
                     model.train()
 
@@ -291,6 +302,22 @@ def main():
         save_model(mp_trainer, opt, step + resume_step)
     dist.barrier()
 
+    # Ensure the directory 'training_losses' exists
+    os.makedirs("/kaggle/working/training_losses", exist_ok=True)
+    os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
+
+    # Convert training_losses list to a NumPy array
+    training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
+
+    val_1000 = {
+        'loss': np.array(val_losses),
+        'acc':np.array(val_accuracies),
+    }
+
+    # Save it as a .npy file
+    np.save("/kaggle/working/training_losses/training_losses.npy", training_losses_array)
+    np.save("/kaggle/working/1000_step_validation/1000_step_validation.npy", val_1000)
+
 
 def set_annealed_lr(opt, base_lr, frac_done):
     lr = base_lr * (1 - frac_done)
@@ -300,11 +327,15 @@ def set_annealed_lr(opt, base_lr, frac_done):
 
 def save_model(mp_trainer, opt, step):
     if dist.get_rank() == 0:
+
+        save_dir = os.path.join(logger.get_dir(), "classifier")
+        os.makedirs(save_dir, exist_ok=True)
+
         th.save(
             mp_trainer.master_params_to_state_dict(mp_trainer.master_params),
-            os.path.join(logger.get_dir(), f"classifier/model{step:06d}.pt"),
+            os.path.join(logger.get_dir(), f"model{step:06d}.pt"),
         )
-        th.save(opt.state_dict(), os.path.join(logger.get_dir(), f"classifier/opt{step:06d}.pt"))
+        th.save(opt.state_dict(), os.path.join(logger.get_dir(), f"opt{step:06d}.pt"))
 
 def compute_top_k(logits, labels, k, reduction="mean"):
     _, top_ks = th.topk(logits, k, dim=-1)
