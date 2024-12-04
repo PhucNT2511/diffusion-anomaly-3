@@ -181,7 +181,6 @@ def main():
                 losses.append(loss.mean().item())
                 accuracies.append(accuracy.mean().item())
         print(f"Validation dataset size: {data_size}")
-
         return np.mean(losses), np.mean(accuracies)
     
     ## In training process
@@ -359,7 +358,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=150000,
+        iterations=30000,
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
