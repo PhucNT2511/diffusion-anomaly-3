@@ -32,8 +32,8 @@ from guided_diffusion.resample import create_named_schedule_sampler
 from guided_diffusion.script_util import (
     add_dict_to_argparser,
     args_to_dict,
-    diffusion_defaults,
-    create_gaussian_diffusion,
+    classifier_and_diffusion_defaults,
+    create_classifier_and_diffusion,
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 import torchvision.models as models
@@ -49,8 +49,8 @@ def main():
     logger.configure()
 
     logger.log("creating diffusion...")
-    diffusion = create_gaussian_diffusion(
-        **args_to_dict(args, diffusion_defaults().keys()),
+    _, diffusion = create_classifier_and_diffusion(
+        **args_to_dict(args, classifier_and_diffusion_defaults().keys()),
     ) 
     if args.noised:
         schedule_sampler = create_named_schedule_sampler(
@@ -375,11 +375,10 @@ def create_argparser():
         fold=1,
         transform=False,
     )
-    defaults.update(diffusion_defaults())
+    defaults.update(classifier_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
     return parser
-
 
 if __name__ == "__main__":
     main()
