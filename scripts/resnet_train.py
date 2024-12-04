@@ -362,7 +362,7 @@ def create_argparser():
         iterations=150000,
         lr=3e-4,
         weight_decay=0.0,
-        anneal_lr=False,
+        anneal_lr=True,
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
