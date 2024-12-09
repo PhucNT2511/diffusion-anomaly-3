@@ -42,6 +42,7 @@ from guided_diffusion.train_util import parse_resume_step_from_filename, log_los
 def main():
     ##
     classifier_scale = 100
+    '''
     def cond_fn(x_0, classifier, t, y=None):
         assert y is not None
         with th.enable_grad():
@@ -52,6 +53,7 @@ def main():
             # Tính toán gradient
             a = th.autograd.grad(selected.sum(), x_0)[0]
             return a, a * classifier_scale
+    '''
 
     def min_max_scaler(x):
         x_flat = x.reshape(x.shape[0], -1)
@@ -60,7 +62,7 @@ def main():
         scale = x_max - x_min
         x_normalize = (x - x_min[:, None, None]) / scale[:, None, None]
         return x_normalize
-
+    '''
     def saliency_map(x_0,classifier):
         t_0 = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
         ds_label = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
@@ -70,6 +72,7 @@ def main():
         # không dùng được vì ko truyền ngược: gaussian_blur = GaussianBlur(15, 5)
         soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000) #ngưỡng 0.4 - 1/(1+e^-t)
         return soft_mask
+    '''
 
 
     ###
@@ -218,11 +221,22 @@ def main():
         for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
             split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
         ):
-          
+            #
             logits = model(sub_batch, timesteps=sub_t)
 
+            #
+            t_0 = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
+            ds_label = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
+            logits_0 = model(sub_batch_0, t_0)
+            log_probs = F.log_softmax(logits_0, dim=-1)
+            selected = log_probs[range(len(logits)), ds_label.view(-1)]  # range(len(logits)) = batch_size
+            # Tính toán gradient
+            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0)[0]
+            grad_img = th.abs(th.sum(x0_grad, dim=1)) ## from (B,C,H,W) to (B,H,W) because we calculate the sum of 4 dimensions
+            coarse_mask = min_max_scaler(grad_img) ## mask  
+            soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000) #ngưỡng 0.4 - 1/(1+e^-t)       
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(saliency_map(sub_batch_0,model),sub_masks)
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(soft_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
