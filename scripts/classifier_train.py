@@ -231,12 +231,14 @@ def main():
             log_probs = F.log_softmax(logits_0, dim=-1)
 
             # Đảm bảo rằng các tensor yêu cầu gradient
-            log_probs.requires_grad_()  # Đảm bảo log_probs yêu cầu gradient
-            selected = log_probs[range(len(logits)), ds_label.view(-1)]  # batch_size
+            log_probs.requires_grad_()
 
-            # Tính toán gradient
+            # Chọn giá trị từ log_probs theo các nhãn ngẫu nhiên
+            selected = log_probs[range(len(logits)), ds_label.view(-1)]
+
+            # Tính toán gradient của sub_batch_0
             sub_batch_0.requires_grad_()  # Đảm bảo sub_batch_0 yêu cầu gradient
-            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0)[0]
+            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0, allow_unused=True)[0]
             grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
             coarse_mask = min_max_scaler(grad_img)  # mask
             soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000)  # ngưỡng 0.4 - sigmoid 1/(1+e^-t) 
