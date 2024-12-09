@@ -45,11 +45,10 @@ def main():
     def cond_fn(x_0, classifier, t ,  y=None):
         assert y is not None
         with th.enable_grad():
-            x_in = x_0
-            logits = classifier(x_in, t)
+            logits = classifier(x_0, t)
             log_probs = F.log_softmax(logits, dim=-1)
             selected = log_probs[range(len(logits)), y.view(-1)] # range(len(logits)) = batch_size
-            a=th.autograd.grad(selected.sum(), x_in)[0]
+            a=th.autograd.grad(selected.sum(), x_0)[0]
             return  a, a * classifier_scale
         
     def min_max_scaler(x):
