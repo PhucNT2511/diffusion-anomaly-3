@@ -13,7 +13,7 @@ def diffusion_defaults():
     Defaults for image and classifier training.
     """
     return dict(
-        learn_sigma=False,
+        learn_sigma=True,
         diffusion_steps=1000,
         noise_schedule="linear",
         timestep_respacing="",
@@ -30,14 +30,14 @@ def classifier_defaults():
     Defaults for classifier models.
     """
     return dict(
-        image_size=64,
+        image_size=256,
         classifier_use_fp16=False,
-        classifier_width=128,
-        classifier_depth=2,
+        classifier_width=32,
+        classifier_depth=4,
         classifier_attention_resolutions="32,16,8",  # 16
         classifier_use_scale_shift_norm=True,  # False
         classifier_resblock_updown=True,  # False
-        classifier_pool="spatial",
+        classifier_pool="attention",
         classifier_dropout=0.0,
         dataset='brats'
     )
@@ -48,18 +48,18 @@ def model_and_diffusion_defaults():
     Defaults for image training.
     """
     res = dict(
-        image_size=64,
+        image_size=256,
         num_channels=128,
         num_res_blocks=2,
-        num_heads=4,
+        num_heads=1,
         num_heads_upsample=-1,
         num_head_channels=-1,
-        attention_resolutions="16,8",
+        attention_resolutions="16",
         channel_mult="",
         dropout=0.0,
-        class_cond=False,
+        class_cond=True,
         use_checkpoint=False,
-        use_scale_shift_norm=True,
+        use_scale_shift_norm=False,
         resblock_updown=False,
         use_fp16=False,
         use_new_attention_order=False,
@@ -138,8 +138,8 @@ def create_model(
     num_channels,
     num_res_blocks,
     channel_mult="",
-    learn_sigma=False,
-    class_cond=False,
+    learn_sigma=True,
+    class_cond=True,
     use_checkpoint=False,
     attention_resolutions="16",
     num_heads=1,
@@ -414,7 +414,7 @@ def sr_create_model(
 def create_gaussian_diffusion(
     *,
     steps=1000,
-    learn_sigma=False,
+    learn_sigma=True,
     sigma_small=False,
     noise_schedule="linear",
     use_kl=False,

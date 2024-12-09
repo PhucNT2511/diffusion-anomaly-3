@@ -40,6 +40,38 @@ from guided_diffusion.train_util import parse_resume_step_from_filename, log_los
 
 
 def main():
+    ##
+    classifier_scale = 100
+    def cond_fn(x_0, classifier, t ,  y=None):
+        assert y is not None
+        with th.enable_grad():
+            x_in = x_0
+            logits = classifier(x_in, t)
+            log_probs = F.log_softmax(logits, dim=-1)
+            selected = log_probs[range(len(logits)), y.view(-1)] # range(len(logits)) = batch_size
+            a=th.autograd.grad(selected.sum(), x_in)[0]
+            return  a, a * classifier_scale
+        
+    def min_max_scaler(x):
+        x_flat = x.reshape(x.shape[0], -1)
+        x_min = th.min(x_flat, dim=1).values
+        x_max = th.max(x_flat, dim=1).values
+        scale = x_max - x_min
+        x_normalize = (x - x_min[:, None, None]) / scale[:, None, None]
+        return x_normalize
+
+    def saliency_map(x_0,classifier):
+        t_0 = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
+        ds_label = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
+        x0_grad, _ = cond_fn(x_0,classifier,t_0,ds_label)
+        grad_img = th.abs(th.sum(x0_grad, dim=1)) ## from (B,C,H,W) to (B,H,W) because we calculate the sum of 4 dimensions
+        coarse_mask = min_max_scaler(grad_img) ## mask  
+        # không dùng được vì ko truyền ngược: gaussian_blur = GaussianBlur(15, 5)
+        soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000) #ngưỡng 0.4 - 1/(1+e^-t)
+        return soft_mask
+
+
+    ###
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
@@ -151,7 +183,7 @@ def main():
             
                 logits = model(sub_batch, timesteps=sub_t)
             
-                loss = F.cross_entropy(logits, sub_labels, reduction="none")
+                loss = F.cross_entropy(logits, sub_labels, reduction="none") 
                 loss = loss.mean()
 
                 accuracy = compute_top_k(
@@ -165,28 +197,31 @@ def main():
     
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
-            batch, _, labels, _ = next(data_loader)
+            batch, _, labels, masks = next(data_loader)
         except:
             data_loader = iter(data_load)
-            batch, _, labels, _ = next(data_loader)
+            batch, _, labels, masks = next(data_loader)
 
         # print('labels', labels)
         batch = batch.to(dist_util.dev())
         labels= labels.to(dist_util.dev())
+        masks = masks.to(dist_util.dev())
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
+            batch_0 = batch
             batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
-        for i, (sub_batch, sub_labels, sub_t) in enumerate(
-            split_microbatches(args.microbatch, batch, labels, t)
+        for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
+            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
         ):
           
             logits = model(sub_batch, timesteps=sub_t)
+
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(saliency_map(sub_batch_0,model),sub_masks)
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -309,7 +344,7 @@ def create_argparser():
         iterations=150000,
         lr=3e-4,
         weight_decay=0.0,
-        anneal_lr=False,
+        anneal_lr=True,
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
