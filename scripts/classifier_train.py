@@ -43,7 +43,8 @@ def main():
     ##
     classifier_scale = 100
     def cond_fn(x_0, classifier, t ,  y=None):
-        assert y is not None 
+        assert y is not None
+        x_0 = x_0.requires_grad_(True) 
         logits = classifier(x_0, t)
         log_probs = F.log_softmax(logits, dim=-1)
         selected = log_probs[range(len(logits)), y.view(-1)] # range(len(logits)) = batch_size
