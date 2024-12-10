@@ -225,8 +225,8 @@ def main():
             logits = model(sub_batch, timesteps=sub_t)
 
             #
-            t_0 = th.randint(low=0, high=1, size=(sub_batch_0_detached.shape[0],), device=dist_util.dev())
-            ds_label = th.randint(low=0, high=1, size=(sub_batch_0_detached.shape[0],), device=dist_util.dev())
+            t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
+            ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             with th.enable_grad():
                 sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
                 logits_0 = model(sub_batch_0_detached, t_0)
