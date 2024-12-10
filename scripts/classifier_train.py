@@ -222,23 +222,20 @@ def main():
             split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
         ):
             #
-            print('sub_batch.requires_grad: ',sub_batch.requires_grad)
             logits = model(sub_batch, timesteps=sub_t)
 
             #
-            print('sub_batch_0.requires_grad: ',sub_batch_0.requires_grad)
-            if sub_batch_0.requires_grad == False:
-                sub_batch_0.requires_grad = True
-            t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            logits_0 = model(sub_batch_0, t_0)
+            sub_batch_0_detached = sub_batch_0.detach().requires_grad_()
+            t_0 = th.randint(low=0, high=1, size=(sub_batch_0_detached.shape[0],), device=dist_util.dev())
+            ds_label = th.randint(low=0, high=1, size=(sub_batch_0_detached.shape[0],), device=dist_util.dev())
+            logits_0 = model(sub_batch_0_detached, t_0)
             log_probs = F.log_softmax(logits_0, dim=-1)
 
             # Chọn giá trị từ log_probs theo các nhãn ngẫu nhiên
-            selected = log_probs[range(len(logits)), ds_label.view(-1)]
+            selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
 
             # Tính toán gradient của sub_batch_0
-            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0)[0]
+            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached,create_graph=True)[0]
             grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
             coarse_mask = min_max_scaler(grad_img)  # mask
             soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000)  # ngưỡng 0.4 - sigmoid 1/(1+e^-t) 
