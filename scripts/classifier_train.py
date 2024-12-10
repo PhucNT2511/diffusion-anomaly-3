@@ -222,9 +222,13 @@ def main():
             split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
         ):
             #
+            print('sub_batch.requires_grad: ',sub_batch.requires_grad)
             logits = model(sub_batch, timesteps=sub_t)
 
             #
+            print('sub_batch_0.requires_grad: ',sub_batch_0.requires_grad)
+            if sub_batch_0.requires_grad == False:
+                sub_batch_0.requires_grad = True
             t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             logits_0 = model(sub_batch_0, t_0)
