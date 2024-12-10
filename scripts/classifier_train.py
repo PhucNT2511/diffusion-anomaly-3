@@ -230,11 +230,11 @@ def main():
             with th.enable_grad():
                 sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
                 logits_0 = model(sub_batch_0_detached, t_0)
-                print("logits_0.requires_grad:", logits_0.requires_grad)
+                #print("logits_0.requires_grad:", logits_0.requires_grad)
                 log_probs = F.log_softmax(logits_0, dim=-1)
-                print("log_probs.requires_grad:", log_probs.requires_grad)
+                #print("log_probs.requires_grad:", log_probs.requires_grad)
                 selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
-                print("selected.requires_grad:", selected.requires_grad)
+                #print("selected.requires_grad:", selected.requires_grad)
                 # Tính toán gradient của sub_batch_0
                 x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
             grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
