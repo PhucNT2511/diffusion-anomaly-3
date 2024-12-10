@@ -229,13 +229,14 @@ def main():
             t_0 = th.randint(low=0, high=1, size=(sub_batch_0_detached.shape[0],), device=dist_util.dev())
             ds_label = th.randint(low=0, high=1, size=(sub_batch_0_detached.shape[0],), device=dist_util.dev())
             logits_0 = model(sub_batch_0_detached, t_0)
+            print("logits_0.requires_grad:", logits_0.requires_grad)
             log_probs = F.log_softmax(logits_0, dim=-1)
-
+            print("log_probs.requires_grad:", log_probs.requires_grad)
             # Chọn giá trị từ log_probs theo các nhãn ngẫu nhiên
             selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
-
+            print("selected.requires_grad:", selected.requires_grad)
             # Tính toán gradient của sub_batch_0
-            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached,create_graph=True)[0]
+            x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
             grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
             coarse_mask = min_max_scaler(grad_img)  # mask
             soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000)  # ngưỡng 0.4 - sigmoid 1/(1+e^-t) 
