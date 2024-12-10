@@ -390,7 +390,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=150000,
+        iterations=120000,
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
