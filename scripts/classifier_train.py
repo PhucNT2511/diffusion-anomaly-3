@@ -241,7 +241,7 @@ def main():
             coarse_mask = min_max_scaler(grad_img)  # mask
             #soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000)  # ngưỡng 0.4 - sigmoid 1/(1+e^-t) 
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + 10*F.mse_loss(coarse_mask,sub_masks, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -390,7 +390,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations= 30000,
+        iterations= 80000,
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
