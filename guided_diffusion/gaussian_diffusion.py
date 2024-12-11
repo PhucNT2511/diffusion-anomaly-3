@@ -422,6 +422,7 @@ class GaussianDiffusion:
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
+        # cfn is grad of classifier with being refined
         a, cfn= cond_fn(
             x, self._scale_timesteps(t).long(), **model_kwargs
         )

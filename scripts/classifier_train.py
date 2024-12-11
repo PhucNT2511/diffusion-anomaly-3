@@ -239,7 +239,8 @@ def main():
                 x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
             grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
             coarse_mask = min_max_scaler(grad_img)  # mask
-            #soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000)  # ngưỡng 0.4 - sigmoid 1/(1+e^-t) 
+            
+            #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
@@ -390,7 +391,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations= 80000,
+        iterations= 50000,
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
