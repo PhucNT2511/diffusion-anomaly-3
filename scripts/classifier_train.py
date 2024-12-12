@@ -398,7 +398,7 @@ def create_argparser():
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/input/checkpoint/model040000.pt",
+        resume_checkpoint="checkpoint/model040000.pt",
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
