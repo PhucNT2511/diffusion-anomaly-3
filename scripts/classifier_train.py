@@ -242,7 +242,7 @@ def main():
             
             #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + 5*F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -391,14 +391,14 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations= 70001,
+        iterations= 40001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/model040000.pt",
+        resume_checkpoint="",
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
