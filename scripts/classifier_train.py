@@ -242,7 +242,7 @@ def main():
             
             #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + 5*F.mse_loss(coarse_mask,sub_masks, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + 0.2*F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -391,7 +391,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations= 40001, # must be more than step from checkpoint
+        iterations= 50001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
