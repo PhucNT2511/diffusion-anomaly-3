@@ -390,7 +390,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=True,
+        noised=False, /////////////////////////
         iterations= 50001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
