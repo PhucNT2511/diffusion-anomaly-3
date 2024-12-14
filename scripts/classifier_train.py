@@ -242,7 +242,7 @@ def main():
             
             #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + 0.2*F.mse_loss(coarse_mask,sub_masks, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
