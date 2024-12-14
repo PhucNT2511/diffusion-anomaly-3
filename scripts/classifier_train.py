@@ -219,7 +219,7 @@ def main():
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
         for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
-            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
+            split_microbatches(args.microbatch,batch, batch, labels, masks, t)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)
@@ -242,7 +242,7 @@ def main():
             
             #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + 3*F.mse_loss(coarse_mask,sub_masks, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -390,7 +390,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=True, ############################################
+        noised=False, ############################################
         iterations= 50001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
