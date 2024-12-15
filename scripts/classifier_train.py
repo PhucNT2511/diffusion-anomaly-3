@@ -219,7 +219,7 @@ def main():
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
         for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
-            split_microbatches(args.microbatch,batch, batch, labels, masks, t)
+            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)
@@ -228,7 +228,7 @@ def main():
             t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             with th.enable_grad():
-                sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
+                sub_batch_0_detached = sub_batch.detach().requires_grad_(True)
                 logits_0 = model(sub_batch_0_detached, t_0)
                 #print("logits_0.requires_grad:", logits_0.requires_grad)
                 log_probs = F.log_softmax(logits_0, dim=-1)
@@ -242,7 +242,7 @@ def main():
             
             #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") #+ F.mse_loss(coarse_mask,sub_masks, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -390,7 +390,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=False, ############################################
+        noised=True, ############################################
         iterations= 50001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
