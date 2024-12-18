@@ -228,7 +228,7 @@ def main():
             t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
             with th.enable_grad():
-                sub_batch_0_detached = sub_batch.detach().requires_grad_(True)
+                sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
                 logits_0 = model(sub_batch_0_detached, t_0)
                 #print("logits_0.requires_grad:", logits_0.requires_grad)
                 log_probs = F.log_softmax(logits_0, dim=-1)
@@ -238,11 +238,24 @@ def main():
                 # Tính toán gradient của sub_batch_0
                 x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
             grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
-            coarse_mask = min_max_scaler(grad_img)  # mask
+            coarse_mask_0 = min_max_scaler(grad_img)  # normalized coarse_mask 
+
+            with th.enable_grad():
+                sub_batch_detached = sub_batch.detach().requires_grad_(True)
+                logits_ = model(sub_batch_detached, t_0)
+                #print("logits_0.requires_grad:", logits_0.requires_grad)
+                log_probs_ = F.log_softmax(logits_, dim=-1)
+                #print("log_probs.requires_grad:", log_probs.requires_grad)
+                selected_ = log_probs_[range(len(logits_)), ds_label.view(-1)]
+                #print("selected.requires_grad:", selected.requires_grad)
+                # Tính toán gradient của sub_batch_0
+                x_grad = th.autograd.grad(selected_.sum(), sub_batch_detached)[0]
+            grad_img_ = th.abs(th.sum(x_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
+            coarse_mask_ = min_max_scaler(grad_img_)  # normalized coarse_mask 
             
-            #coarse_mask = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
+            #coarse_mask_ = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
          
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask,sub_masks*coarse_mask, reduction="mean")
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask_,sub_masks*coarse_mask_, reduction="mean") + F.mse_loss(coarse_mask_0,sub_masks, reduction="mean")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
