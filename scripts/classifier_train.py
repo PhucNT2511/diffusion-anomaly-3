@@ -40,7 +40,7 @@ from guided_diffusion.train_util import parse_resume_step_from_filename, log_los
 
 
 def main():
-    wandb.login()
+    wandb.login(key="18867541319386f8b2e1362741174bd50968c3f3")
     args = create_argparser().parse_args()
 
     wandb.init(
