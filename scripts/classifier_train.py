@@ -238,10 +238,12 @@ def main():
         return losses
 
     #### every step 
-    
     for step in range(args.iterations - resume_step):
-        # logger.logkv sẽ lưu lại toàn bộ giá trị
+        correct=0; total=0 # mỗi step nó đều khởi động lại để tính loss và acc train cho batch
+
+        # logger.logkv sẽ lưu lại toàn bộ giá trị, và thực chất là lưu lại của vòng lặp trước đó
         logger.logkv("step", step + resume_step)
+        # ở đây cũng chỉ ghi thêm "samples" thứ bn thôi, còn các giá trị khác của loss đã lưu hết ở hàm log_loss_dict
         logger.logkv(
             "samples",
             (step + resume_step + 1) * args.batch_size * dist.get_world_size(),
@@ -252,9 +254,8 @@ def main():
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
-
         mp_trainer.optimize(opt)
-        # calculate val_accuracy & loss in all of validation dataset
+        # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
@@ -273,10 +274,15 @@ def main():
             print('step', step + resume_step)
             logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
             ## wandb lưu lại sau 10 steps các thông số của training
+            correct = losses["train_acc@1"].sum()
+            train_loss = losses["train_loss"].sum() 
+            total = args.batch_size
+            acctrain=correct/total
+            losstrain = train_loss/total 
             wandb.log({
                 "step": step + resume_step,
-                "train_acc@1": losses["train_acc@1"],
-                "train_loss": losses["train_loss"],
+                "train_acc@1": acctrain,
+                "train_loss": losstrain,
             })
         if (
             step

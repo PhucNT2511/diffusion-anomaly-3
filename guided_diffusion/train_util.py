@@ -322,7 +322,7 @@ def find_ema_checkpoint(main_checkpoint, step, rate):
         return path
     return None
 
-
+## lưu các giá trị vào logger loss, acc
 def log_loss_dict(diffusion, ts, losses):
     for key, values in losses.items():
         logger.logkv_mean(key, values.mean().item())
