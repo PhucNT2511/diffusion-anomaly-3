@@ -1,7 +1,7 @@
 """
 Train a noised image classifier on ImageNet.
 """
-
+import wandb
 import argparse
 import os
 import sys
@@ -41,6 +41,11 @@ from guided_diffusion.train_util import parse_resume_step_from_filename, log_los
 
 def main():
     args = create_argparser().parse_args()
+
+    wandb.init(
+        project="noised-image-classifier",  # Replace with your project name
+        config=args,  # Optionally log hyperparameters
+    )
 
     dist_util.setup_dist()
     logger.configure()
@@ -133,7 +138,8 @@ def main():
         opt.load_state_dict(
             dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
         )
-
+     
+   
     logger.log("training classifier model...")
 
     def validation_log(val_data_load):
@@ -151,7 +157,7 @@ def main():
                 split_microbatches(args.microbatch, batch, labels, t)
             ):
             
-                logits = model(sub_batch, timesteps=sub_t)
+                logits = model(sub_batch, timesteps=sub_t) 
             
                 loss = F.cross_entropy(logits, sub_labels, reduction="none")
                 loss = loss.mean()
@@ -231,29 +237,20 @@ def main():
         return losses
 
     #### every step 
-    correct=0; total=0
-    training_losses=[]
-    val_losses = []
-    val_accuracies = []
+    
     for step in range(args.iterations - resume_step):
+        # logger.logkv sẽ lưu lại toàn bộ giá trị
         logger.logkv("step", step + resume_step)
         logger.logkv(
             "samples",
             (step + resume_step + 1) * args.batch_size * dist.get_world_size(),
         )
+    
         if args.anneal_lr:
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
-
-        correct+=losses["train_acc@1"].sum() #
-        total+=args.batch_size
-        if (step % len(datal)==0):
-            acctrain=correct/total
-            correct=0; total=0
-            print('mean training accuracy: ',acctrain)
-            training_losses.append(acctrain)
 
         mp_trainer.optimize(opt)
         # calculate val_accuracy & loss in all of validation dataset
@@ -263,14 +260,23 @@ def main():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
-                    val_losses.append(val_loss)
-                    val_accuracies.append(val_accuracy)
-                    print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
+                    ## Sau 1000 steps wandb lưu lại thông số của validate
+                    wandb.log({
+                        "step": step + resume_step,
+                        "val_acc": val_accuracy,
+                        "val_loss": val_loss,
+                    })
                     model.train()
 
-        if not step % args.log_interval:
+        if not step % args.log_interval: # cứ 10 steps thì in ra một lần
             print('step', step + resume_step)
-            logger.dumpkvs()
+            logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
+            ## wandb lưu lại sau 10 steps các thông số của training
+            wandb.log({
+                "step": step + resume_step,
+                "train_acc@1": losses["train_acc@1"],
+                "train_loss": losses["train_loss"],
+            })
         if (
             step
             and dist.get_rank() == 0
@@ -283,22 +289,6 @@ def main():
         logger.log("saving model...")
         save_model(mp_trainer, opt, step + resume_step)
     dist.barrier()
-
-    # Ensure the directory 'training_losses' exists
-    os.makedirs("/kaggle/working/training_losses", exist_ok=True)
-    os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
-
-    # Convert training_losses list to a NumPy array
-    training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
-
-    val_1000 = {
-        'loss': np.array(val_losses),
-        'acc':np.array(val_accuracies),
-    }
-
-    # Save it as a .npy file
-    np.save("/kaggle/working/training_losses/training_losses.npy", training_losses_array)
-    np.save("/kaggle/working/1000_step_validation/1000_step_validation.npy", val_1000)
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
@@ -350,8 +340,8 @@ def create_argparser():
         schedule_sampler="uniform",
         resume_checkpoint="",
         log_interval=10,
-        eval_interval=1000,
-        save_interval=10000,
+        eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
+        save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
         dataset='camelyon',
         max_L=1000,
         transform=False,

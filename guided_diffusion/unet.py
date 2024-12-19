@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from guided_diffusion.fp16_util import convert_module_to_f16, convert_module_to_f32
 from guided_diffusion.nn import (
     checkpoint,
-    conv_nd, ############################
+    conv_nd, ############################ convolutional for n dimension, 2d, 1d, ...
     linear,
     avg_pool_nd,
     zero_module,
@@ -21,6 +21,7 @@ from guided_diffusion.nn import (
 class AttentionPool2d(nn.Module):
     """
     Adapted from CLIP: https://github.com/openai/CLIP/blob/main/clip/model.py
+    embed_dim, output_dim is the number of channels of input and output, not size W, H of input
     """
 
     def __init__(
@@ -34,20 +35,25 @@ class AttentionPool2d(nn.Module):
         self.positional_embedding = nn.Parameter(
             th.randn(embed_dim, spacial_dim ** 2 + 1) / embed_dim ** 0.5
         )
+        # make Q, K, V, so we have 3 * channels
         self.qkv_proj = conv_nd(1, embed_dim, 3 * embed_dim, 1)
-        self.c_proj = conv_nd(1, embed_dim, output_dim or embed_dim, 1)
+        #projection
+        self.c_proj = conv_nd(1, embed_dim, output_dim or embed_dim, 1) ## output_dim=2
         self.num_heads = embed_dim // num_heads_channels
         self.attention = QKVAttention(self.num_heads)
 
     def forward(self, x):
-        b, c, *_spatial = x.shape
+        b, c, *_spatial = x.shape ## [B, C, H, W]
         x = x.reshape(b, c, -1)  # NC(HW)
+        ## We propose to add the mean value of x to concat to x --> so one more dimension --> positional emb also need 1 more
+        ## I think adding the mean value will improve the possibility of global prediction
+        ## I think it's like CLS token
         x = th.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(HW+1)
         x = x + self.positional_embedding[None, :, :].to(x.dtype)  # NC(HW+1)
         x = self.qkv_proj(x)
-        x = self.attention(x)
+        x = self.attention(x) # transmit 3 matrix Q,K,V calculated from x
         x = self.c_proj(x)
-        return x[:, :, 0]
+        return x[:, :, 0] ## And we take the first (CLS logit)
 
 
 class TimestepBlock(nn.Module):
@@ -847,6 +853,7 @@ class EncoderUNetModel(nn.Module):
                 zero_module(conv_nd(dims, ch, out_channels, 1)),
                 nn.Flatten(),
             )
+        ################## This is settings in our code
         elif pool == "attention":
             assert num_head_channels != -1
             self.out = nn.Sequential(
@@ -856,7 +863,7 @@ class EncoderUNetModel(nn.Module):
                     (image_size // ds), ch, num_head_channels, out_channels
                 ),
             )
-        #################################################
+        ######
         elif pool == "spatial":
             print('spatial')
           #  self.out = nn.Linear(self._feature_size, self.out_channels)
@@ -915,5 +922,5 @@ class EncoderUNetModel(nn.Module):
             return self.out(h)
         else:
             h = h.type(x.dtype)
-            return self.out(h)
+            return self.out(h) ## return a vector 2 dimension - logit of CLS
 

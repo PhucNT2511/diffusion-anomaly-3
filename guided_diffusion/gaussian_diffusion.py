@@ -201,12 +201,15 @@ class GaussianDiffusion:
         mean = (
             _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
         )
+        # mean = sqrt(alpha_bar_t)*x_0
+        # var = sqrt(1-alpha_bar_t)*I
         variance = _extract_into_tensor(1.0 - self.alphas_cumprod, t, x_start.shape)
         log_variance = _extract_into_tensor(
             self.log_one_minus_alphas_cumprod, t, x_start.shape
         )
         return mean, variance, log_variance
-
+    
+    ## we sample x_(t+1) at timestep (t+1) from x_0
     def q_sample(self, x_start, t, noise=None):
         """
         Diffuse the data for a given number of diffusion steps.
@@ -236,11 +239,13 @@ class GaussianDiffusion:
         """
        
         assert x_start.shape == x_t.shape
+        # mean, var in ddim
         posterior_mean = (
             _extract_into_tensor(self.posterior_mean_coef1, t, x_t.shape) * x_start
             + _extract_into_tensor(self.posterior_mean_coef2, t, x_t.shape) * x_t
         )
         posterior_variance = _extract_into_tensor(self.posterior_variance, t, x_t.shape)
+
         posterior_log_variance_clipped = _extract_into_tensor(
             self.posterior_log_variance_clipped, t, x_t.shape
         )
@@ -423,13 +428,17 @@ class GaussianDiffusion:
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
+
+        ## At step, we have cfn is gradient of healthy classifier for x_in at timestep t
         a, cfn= cond_fn(
             x, self._scale_timesteps(t).long(), **model_kwargs
-        )
+        ) # cfn is grad for x_t
+
+        #eps with condtional factor
         eps = eps - (1 - alpha_bar).sqrt() * cfn
 
         out = p_mean_var.copy()
-        out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
+        out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) # predict x_0 from x_t
         out["mean"], _, _ = self.q_posterior_mean_variance(
             x_start=out["pred_xstart"], x_t=x, t=t
         )
@@ -757,7 +766,7 @@ class GaussianDiffusion:
         eta=0.0,
     ):
         """
-        Sample x_{t+1} from the model using DDIM reverse ODE.
+        Sample x_{t+1} from x_t with the model using DDIM reverse ODE.
         """
         assert eta == 0.0, "Reverse ODE only for deterministic path"
         out = self.p_mean_variance(
@@ -770,17 +779,11 @@ class GaussianDiffusion:
         )
         # Usually our model outputs epsilon, but we re-derive it
         # in case we used x_start or x_prev prediction.
-        eps = (
-            _extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x.shape) * x
-            - out["pred_xstart"]
-        ) / _extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x.shape)
+        eps = ( _extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x.shape) * x - out["pred_xstart"]) / _extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x.shape)
         alpha_bar_next = _extract_into_tensor(self.alphas_cumprod_next, t, x.shape)
 
         # Equation 12. reversed
-        mean_pred = (
-            out["pred_xstart"] * th.sqrt(alpha_bar_next)
-            + th.sqrt(1 - alpha_bar_next) * eps
-        )
+        mean_pred = ( out["pred_xstart"] * th.sqrt(alpha_bar_next) + th.sqrt(1 - alpha_bar_next) * eps )
 
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
 
@@ -1216,7 +1219,7 @@ def _extract_into_tensor(arr, timesteps, broadcast_shape):
     """
     Extract values from a 1-D numpy array for a batch of indices.
 
-    :param arr: the 1-D numpy array.
+    :param arr: the 1-D numpy array - can be alpha chain or beta chain ...
     :param timesteps: a tensor of indices into the array to extract.
     :param broadcast_shape: a larger shape of K dimensions with the batch
                             dimension equal to the length of timesteps.
