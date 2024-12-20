@@ -239,8 +239,6 @@ def main():
 
     #### every step 
     for step in range(args.iterations - resume_step):
-        correct=0; total=0 # mỗi step nó đều khởi động lại để tính loss và acc train cho batch
-
         # logger.logkv sẽ lưu lại toàn bộ giá trị, và thực chất là lưu lại của vòng lặp trước đó
         logger.logkv("step", step + resume_step)
         # ở đây cũng chỉ ghi thêm "samples" thứ bn thôi, còn các giá trị khác của loss đã lưu hết ở hàm log_loss_dict
@@ -274,15 +272,10 @@ def main():
             print('step', step + resume_step)
             logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
             ## wandb lưu lại sau 10 steps các thông số của training
-            correct = losses["train_acc@1"].sum()
-            train_loss = losses["train_loss"].sum() 
-            total = args.batch_size
-            acctrain=correct/total
-            losstrain = train_loss/total 
             wandb.log({
                 "step": step + resume_step,
-                "train_acc@1": acctrain,
-                "train_loss": losstrain,
+                "train_acc@1": losses["train_acc@1"].mean(),
+                "train_loss": losses["train_loss"].mean(),
             })
         if (
             step
