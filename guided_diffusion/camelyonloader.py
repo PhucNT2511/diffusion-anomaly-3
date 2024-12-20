@@ -22,7 +22,6 @@ def normalize(image):
     scale = max_ - min_
     if scale == 0:
         t = 1 
-        scale += 1e-9
     image = (image - min_) / scale
     return image, t
 
