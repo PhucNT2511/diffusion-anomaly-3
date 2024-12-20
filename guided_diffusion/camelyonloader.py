@@ -15,7 +15,7 @@ def normalize(image):
     """
     min_ = np.min(image)
     max_ = np.max(image)
-    scale = max_ - min_
+    scale = max_ - min_ + 1e-9
     image = (image - min_) / scale
     return image
 
