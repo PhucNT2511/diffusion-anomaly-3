@@ -18,12 +18,9 @@ def normalize(image):
     max_ = np.max(image)
     # if scale == 0: 
     # return 0 --> in ra số thứ tự của ảnh đó trong file [idx]
-    t = 0
     scale = max_ - min_
-    if scale == 0:
-        t = 1 
     image = (image - min_) / scale
-    return image, t
+    return image
 
 def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
     """Main pre-processing function used for the challenge (seems to work the best).
@@ -83,9 +80,7 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         
         ##
         image = np.transpose(image, [2, 0, 1])
-        image,t = normalize(image)
-        if t==1:
-            print(self.datapaths[idx])
+        image = irm_min_max_preprocess(image)
 
         label = 1 if np.sum(mask) > 0 else 0
          
