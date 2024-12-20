@@ -51,7 +51,7 @@ def model_and_diffusion_defaults():
         image_size=256, #####################
         num_channels=128, #####################
         num_res_blocks=2,
-        num_heads=4,
+        num_heads=1,
         num_heads_upsample=-1,
         num_head_channels=-1,
         attention_resolutions="16",
