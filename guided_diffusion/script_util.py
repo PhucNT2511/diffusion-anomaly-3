@@ -54,7 +54,7 @@ def model_and_diffusion_defaults():
         num_heads=4,
         num_heads_upsample=-1,
         num_head_channels=-1,
-        attention_resolutions="16,8",
+        attention_resolutions="16",
         channel_mult="",
         dropout=0.0,
         class_cond=True, ################ class_cond = False in default, previously

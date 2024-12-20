@@ -4,11 +4,36 @@ import numpy as np
 import torch.nn.functional as F
 import pickle
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+
 
 #data_path = '/kaggle/input/camelyon'
 data_path = '/kaggle/input/camelyon16/data'
 #data_path = 'D:/medical_DF/data_camelyon
+
+def normalize(image):
+    """Basic min max scaler.
+    """
+    min_ = np.min(image)
+    max_ = np.max(image)
+    scale = max_ - min_
+    image = (image - min_) / scale
+    return image
+
+def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
+    """Main pre-processing function used for the challenge (seems to work the best).
+    Remove outliers voxels first, then min-max scale.
+    1% -- 99%
+    Warnings
+    --------
+    This will not do it channel wise!!
+    """
+
+    non_zeros = image > 0
+    if non_zeros.sum() > 0:
+        low, high = np.percentile(image[non_zeros], [low_perc, high_perc])
+        image = np.clip(image, low, high)
+        image = normalize(image)
+    return image
 
 class CAMELYONDataset(torch.utils.data.Dataset):
     def __init__(self, mode="train", test_flag = False, transforms=None, model = "unet"):
@@ -46,19 +71,16 @@ class CAMELYONDataset(torch.utils.data.Dataset):
                 self.datapaths.append(full_path)
 
     def __getitem__(self, idx):
-        scaler = MinMaxScaler()
         data = np.load(self.datapaths[idx],allow_pickle = True).item()
         image = np.array(data['image'])
         mask = np.array(data['mask'])
         
         ## Chuẩn hóa ảnh về 2D do minmaxscaler chỉ làm việc với 2D --> đưa từ [0,255] --> [0,1] --> Sau đó, lại đưa về 3D
-        image = scaler.fit_transform(image.reshape(-1, image.shape[-1])).reshape(image.shape)
-        # Đưa chanel lên trên thôi
-        image = np.transpose(image, [2, 0, 1])
+        image = irm_min_max_preprocess(image)
 
         label = 1 if np.sum(mask) > 0 else 0
          
-        ####################### set cond = None
+        ####################### Init cond = None
         cond = {}
         cond['y'] = label 
 
