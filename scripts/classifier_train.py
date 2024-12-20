@@ -332,7 +332,7 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100000,
-        lr=3e-4,
+        lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=4,
@@ -354,3 +354,5 @@ def create_argparser():
 
 if __name__ == "__main__":
     main()
+
+################### Rõ ràng dữ liệu có vấn đề, cần nghiêm túc điều tra lại toàn bộ dữ liệu

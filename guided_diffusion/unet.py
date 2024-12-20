@@ -708,7 +708,7 @@ class EncoderUNetModel(nn.Module):
         self,
         image_size,
         in_channels,
-        model_channels,
+        model_channels, ##################### 
         out_channels, #################### currently 2
         num_res_blocks,
         attention_resolutions,

@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn.functional as F
 import pickle
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 #data_path = '/kaggle/input/camelyon'
@@ -15,9 +16,15 @@ def normalize(image):
     """
     min_ = np.min(image)
     max_ = np.max(image)
-    scale = max_ - min_ + 1e-9
+    # if scale == 0: 
+    # return 0 --> in ra số thứ tự của ảnh đó trong file [idx]
+    t = 0
+    scale = max_ - min_
+    if scale == 0:
+        t = 1 
+        scale += 1e-9
     image = (image - min_) / scale
-    return image
+    return image, t
 
 def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
     """Main pre-processing function used for the challenge (seems to work the best).
@@ -77,7 +84,11 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         
         ## 
         image = np.transpose(image, [2, 0, 1])
-        image = normalize(image)
+        img1 = image
+        image,t = normalize(image)
+        if t==1:
+            plt.imshow(img1)
+            plt.show()
 
         label = 1 if np.sum(mask) > 0 else 0
          
