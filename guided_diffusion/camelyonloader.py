@@ -81,9 +81,9 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         image = np.array(data['image'])
         mask = np.array(data['mask'])
         
-        ## 
+        ##
+        img1 = image 
         image = np.transpose(image, [2, 0, 1])
-        img1 = image
         image,t = normalize(image)
         if t==1:
             plt.imshow(img1)
