@@ -82,12 +82,10 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         mask = np.array(data['mask'])
         
         ##
-        img1 = image 
         image = np.transpose(image, [2, 0, 1])
         image,t = normalize(image)
         if t==1:
-            plt.imshow(img1)
-            plt.show()
+            print(self.datapaths[idx])
 
         label = 1 if np.sum(mask) > 0 else 0
          
