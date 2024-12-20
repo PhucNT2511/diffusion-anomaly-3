@@ -75,7 +75,8 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         image = np.array(data['image'])
         mask = np.array(data['mask'])
         
-        ## Chuẩn hóa ảnh về 2D do minmaxscaler chỉ làm việc với 2D --> đưa từ [0,255] --> [0,1] --> Sau đó, lại đưa về 3D
+        ## 
+        image = np.transpose(image, [2, 0, 1])
         image = irm_min_max_preprocess(image)
 
         label = 1 if np.sum(mask) > 0 else 0
