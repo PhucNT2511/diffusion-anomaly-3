@@ -77,7 +77,7 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         
         ## 
         image = np.transpose(image, [2, 0, 1])
-        image = irm_min_max_preprocess(image)
+        image = normalize(image)
 
         label = 1 if np.sum(mask) > 0 else 0
          
