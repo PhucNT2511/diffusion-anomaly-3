@@ -172,6 +172,7 @@ def main():
 
         return np.mean(losses), np.mean(accuracies) # Transform to numpy
     
+    
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
             batch, _, labels, _ = next(data_loader)
@@ -238,6 +239,8 @@ def main():
         return losses
 
     #### every step 
+    loss_epoch = 0
+    acc_epoch = 0
     for step in range(args.iterations - resume_step):
         # logger.logkv sẽ lưu lại toàn bộ giá trị, và thực chất là lưu lại của vòng lặp trước đó
         logger.logkv("step", step + resume_step)
@@ -252,6 +255,9 @@ def main():
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
+        loss_epoch += losses['train_loss'].sum()
+        acc_epoch += losses['train_acc@1'].sum()
+
         mp_trainer.optimize(opt)
         # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
@@ -271,12 +277,6 @@ def main():
         if not step % args.log_interval: # cứ 10 steps thì in ra một lần
             print('step', step + resume_step)
             logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
-            ## wandb lưu lại sau 10 steps các thông số của training
-            wandb.log({
-                "step": step + resume_step,
-                "train_acc@1": losses["train_acc@1"].mean(),
-                "train_loss": losses["train_loss"].mean(),
-            })
         if (
             step
             and dist.get_rank() == 0
@@ -284,6 +284,15 @@ def main():
         ):
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
+        
+        if not step % 1958: ## số batch: 1959
+            wandb.log({
+                "step": step/1958,
+                "train_acc@1": acc_epoch/1959/4,
+                "train_loss": loss_epoch/1959/4,
+            })
+            loss_epoch = 0
+            acc_epoch = 0
 
     if dist.get_rank() == 0:
         logger.log("saving model...")
