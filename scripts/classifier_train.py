@@ -285,9 +285,9 @@ def main():
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
         
-        if not step % 1958: ## số batch: 1959
+        if not (step+1) % 1959: ## số batch: 1959
             wandb.log({
-                "step": step/1958,
+                "epoch": (step+1)/1959,
                 "train_acc@1": acc_epoch/1959/4,
                 "train_loss": loss_epoch/1959/4,
             })
@@ -340,7 +340,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=100000,
+        iterations=180000,
         lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
         weight_decay=0.0,
         anneal_lr=True,
