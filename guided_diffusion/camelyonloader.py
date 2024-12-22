@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
+import random
 
 
 #data_path = '/kaggle/input/camelyon'
@@ -17,17 +18,16 @@ def rotate_image(image, mask):
     images = [image]
     masks = [mask]
     
-    # Xoay 90 độ
-    images.append(np.rot90(image, k=1))
-    masks.append(np.rot90(mask, k=1))
+    # Chọn một góc ngẫu nhiên: 90°, 180°, 270°
+    k = random.choice([1, 2, 3])  # Chọn ngẫu nhiên 1 trong 3 giá trị
     
-    # Xoay 180 độ
-    images.append(np.rot90(image, k=2))
-    masks.append(np.rot90(mask, k=2))
+    # Xoay ảnh và mask theo góc đã chọn
+    image_rotated = np.rot90(image, k=k)
+    mask_rotated = np.rot90(mask, k=k)
     
     # Xoay 270 độ
-    images.append(np.rot90(image, k=3))
-    masks.append(np.rot90(mask, k=3))
+    images.append(image_rotated)
+    masks.append(mask_rotated)
     
     return images, masks
 

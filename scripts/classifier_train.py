@@ -101,11 +101,12 @@ def main():
     if args.dataset == 'camelyon':
         print("Training on CAMELYON-16 dataset")
         ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
+
         ds1 = []
         for i in range (len(ds)):
-            print(i)
             ds1.extend(ds[i])
         print('len_ds1: ',len(ds1))
+
         datal = th.utils.data.DataLoader(
                 ds1,
                 batch_size=args.batch_size,
@@ -290,11 +291,11 @@ def main():
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
         
-        if not (step+1) % 1959: ## số batch: 1959
+        if not (step+1) % (1959*2): ## số batch: 1959
             wandb.log({
-                "epoch": (step+1)/1959,
-                "train_acc@1": acc_epoch/1959/4,
-                "train_loss": loss_epoch/1959/4,
+                "epoch": (step+1)/(1959*2),
+                "train_acc@1": acc_epoch/1959/8,
+                "train_loss": loss_epoch/1959/8,
             })
             loss_epoch = 0
             acc_epoch = 0
@@ -345,7 +346,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=50001,
+        iterations=100001,
         lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
         weight_decay=0.0,
         anneal_lr=True,
