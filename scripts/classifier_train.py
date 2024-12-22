@@ -102,7 +102,9 @@ def main():
         print("Training on CAMELYON-16 dataset")
         ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
         ds1 = []
-        ds1.extend(ds[i] for i in range (len(ds)))
+        for i in range (len(ds)):
+            print(i)
+            ds1.extend(ds[i])
         print('len_ds1: ',len(ds1))
         datal = th.utils.data.DataLoader(
                 ds1,
