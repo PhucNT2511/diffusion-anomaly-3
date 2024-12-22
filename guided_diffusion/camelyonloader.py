@@ -5,31 +5,12 @@ import torch.nn.functional as F
 import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
-import random
+
 
 
 #data_path = '/kaggle/input/camelyon'
 data_path = '/kaggle/input/camelyon16/data'
 #data_path = 'D:/medical_DF/data_camelyon
-
-# Hàm xoay ảnh và mask theo các góc: 0°, 90°, 180°, 270°
-def rotate_image(image, mask):
-    # Tạo một danh sách chứa các ảnh và mask xoay ở 4 góc: 0°, 90°, 180°, 270°
-    images = [image]
-    masks = [mask]
-    
-    # Chọn một góc ngẫu nhiên: 90°, 180°, 270°
-    k = random.choice([1, 2, 3])  # Chọn ngẫu nhiên 1 trong 3 giá trị
-    
-    # Xoay ảnh và mask theo góc đã chọn
-    image_rotated = np.rot90(image, k=k)
-    mask_rotated = np.rot90(mask, k=k)
-    
-    # Xoay 270 độ
-    images.append(image_rotated)
-    masks.append(mask_rotated)
-    
-    return images, masks
 
 def normalize(image):
     """Basic min max scaler.
@@ -60,8 +41,6 @@ def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
 
 class CAMELYONDataset(torch.utils.data.Dataset):
     def __init__(self, mode="train", test_flag = False, transforms=None, model = "unet"):
-        self.model = model
-        self.mode = mode
     
         super().__init__()
         self.transforms = transforms
@@ -100,29 +79,7 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         image = np.array(data['image'])
         mask = np.array(data['mask'])
         
-
-        if self.model == "classifier" and self.mode =="train":
-            # Xoay ảnh và mask theo các góc 0°, 90°, 180°, 270°
-            images, masks = rotate_image(image, mask)
-
-            # Chuyển các ảnh về định dạng (C, H, W) và chuẩn hóa
-            images = [np.transpose(im, [2, 0, 1]) for im in images]  # Chuyển từ (H, W, C) -> (C, H, W)
-            images = [irm_min_max_preprocess(im) for im in images]  # Chuẩn hóa tất cả các ảnh
-
-            # Tạo label cho tất cả các mask
-            labels = [1 if np.sum(mask) > 0 else 0 for mask in masks]
-
-            ####################### Init cond = None
-            cond = {'y': labels}
-
-            if self.transforms:
-                # Chuyển mỗi ảnh thành Tensor và áp dụng các transform nếu có
-                images = [self.transforms(torch.Tensor(image)) for image in images]
-
-            return np.array([(np.float32(image) , cond, labels, np.float32(mask)) for mask in masks])
-
-
-         ##
+        ##
         image = np.transpose(image, [2, 0, 1])
         image = irm_min_max_preprocess(image)
 
@@ -133,6 +90,7 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         cond['y'] = label 
         if self.transforms:
             image = self.transforms(torch.Tensor(image))
+            mask = self.transforms(torch.Tensor(mask))
 
         return np.float32(image), cond, label, np.float32(mask)
 

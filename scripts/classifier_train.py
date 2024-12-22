@@ -17,6 +17,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
+from torch.utils.data import ConcatDataset
 # from visdom import Visdom
 import numpy as np
 # viz = Visdom(port=8850)
@@ -100,15 +101,32 @@ def main():
 
     if args.dataset == 'camelyon':
         print("Training on CAMELYON-16 dataset")
-        ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
 
-        ds1 = []
-        for i in range (len(ds)):
-            ds1.extend(ds[i])
-        print('len_ds1: ',len(ds1))
-        ds1 = np.array(ds1)
+        ds0 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
+        
+        # Định nghĩa phép biến đổi xoay 90 độ
+        transform1 = transforms.Compose([
+            transforms.Lambda(lambda img: F.rotate(img, 90))  # Sử dụng F.rotate từ torch.nn.functional
+        ])
+        ds1 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform1, model='classifier')
+
+        # Định nghĩa phép biến đổi xoay 180 độ
+        transform2 = transforms.Compose([
+            transforms.Lambda(lambda img: F.rotate(img, 180))  # Sử dụng F.rotate từ torch.nn.functional
+        ])
+        ds2 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform2, model='classifier')
+
+        # Định nghĩa phép biến đổi xoay 270 độ
+        transform3 = transforms.Compose([
+            transforms.Lambda(lambda img: F.rotate(img, 270))  # Sử dụng F.rotate từ torch.nn.functional
+        ])
+        ds3 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform3, model='classifier')
+
+        # Kết hợp tất cả các dataset lại
+        ds_all = ConcatDataset([ds0, ds1, ds2, ds3])
+
         datal = th.utils.data.DataLoader(
-                ds1,
+                ds_all,
                 batch_size=args.batch_size,
                 shuffle=True)
         data = iter(datal)
