@@ -60,6 +60,8 @@ def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
 
 class CAMELYONDataset(torch.utils.data.Dataset):
     def __init__(self, mode="train", test_flag = False, transforms=None, model = "unet"):
+        self.model = model
+        self.mode = mode
     
         super().__init__()
         self.transforms = transforms
@@ -93,13 +95,13 @@ class CAMELYONDataset(torch.utils.data.Dataset):
                 full_path = os.path.join(data_path + '/test', path)  # Kết hợp đường dẫn đầy đủ
                 self.datapaths.append(full_path)
 
-    def __getitem__(self, idx, mode="train",model = "unet",):
+    def __getitem__(self, idx):
         data = np.load(self.datapaths[idx],allow_pickle = True).item()
         image = np.array(data['image'])
         mask = np.array(data['mask'])
         
 
-        if model == "classifier" and mode =="train":
+        if self.model == "classifier" and self.mode =="train":
             # Xoay ảnh và mask theo các góc 0°, 90°, 180°, 270°
             images, masks = rotate_image(image, mask)
 
