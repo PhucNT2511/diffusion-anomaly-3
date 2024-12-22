@@ -101,8 +101,10 @@ def main():
     if args.dataset == 'camelyon':
         print("Training on CAMELYON-16 dataset")
         ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
+        ds1 = []
+        ds1.extend(ds[i] for i in range (len(ds)))
         datal = th.utils.data.DataLoader(
-                ds,
+                ds1,
                 batch_size=args.batch_size,
                 shuffle=True)
         data = iter(datal)
@@ -340,8 +342,8 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=250000,
-        lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
+        iterations=200000,
+        lr=3e-2, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=4,
