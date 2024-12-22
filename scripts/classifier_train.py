@@ -309,11 +309,11 @@ def main():
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
         
-        if not (step+1) % (1959*2): ## số batch: 1959
+        if not (step+1) % (1959*4): ## số batch: 1959
             wandb.log({
-                "epoch": (step+1)/(1959*2),
-                "train_acc@1": acc_epoch/1959/8,
-                "train_loss": loss_epoch/1959/8,
+                "epoch": (step+1)/(1959*4),
+                "train_acc@1": acc_epoch/1959/16,
+                "train_loss": loss_epoch/1959/16,
             })
             loss_epoch = 0
             acc_epoch = 0
