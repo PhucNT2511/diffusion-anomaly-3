@@ -119,7 +119,7 @@ class CAMELYONDataset(torch.utils.data.Dataset):
                 # Chuyển mỗi ảnh thành Tensor và áp dụng các transform nếu có
                 images = [self.transforms(torch.Tensor(image)) for image in images]
 
-            return [np.float32(image) , cond, labels, np.float32(mask) for mask in masks]
+            return [(np.float32(image) , cond, labels, np.float32(mask)) for mask in masks]
 
 
          ##
