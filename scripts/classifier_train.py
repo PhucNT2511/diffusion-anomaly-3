@@ -15,6 +15,7 @@ import torch as th
 # from guided_diffusion.losses import FocalLoss
 import torch.distributed as dist
 import torch.nn.functional as F
+import torchvision.transforms.functional as FF
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 from torch.utils.data import ConcatDataset
@@ -106,19 +107,19 @@ def main():
         
         # Định nghĩa phép biến đổi xoay 90 độ
         transform1 = transforms.Compose([
-            transforms.Lambda(lambda img: F.rotate(img, 90))  # Sử dụng F.rotate từ torch.nn.functional
+            transforms.Lambda(lambda img: FF.rotate(img, 90))  # Sử dụng F.rotate từ torch.nn.functional
         ])
         ds1 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform1, model='classifier')
 
         # Định nghĩa phép biến đổi xoay 180 độ
         transform2 = transforms.Compose([
-            transforms.Lambda(lambda img: F.rotate(img, 180))  # Sử dụng F.rotate từ torch.nn.functional
+            transforms.Lambda(lambda img: FF.rotate(img, 180))  # Sử dụng F.rotate từ torch.nn.functional
         ])
         ds2 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform2, model='classifier')
 
         # Định nghĩa phép biến đổi xoay 270 độ
         transform3 = transforms.Compose([
-            transforms.Lambda(lambda img: F.rotate(img, 270))  # Sử dụng F.rotate từ torch.nn.functional
+            transforms.Lambda(lambda img: FF.rotate(img, 270))  # Sử dụng F.rotate từ torch.nn.functional
         ])
         ds3 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform3, model='classifier')
 
