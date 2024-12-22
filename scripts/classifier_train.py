@@ -106,7 +106,7 @@ def main():
         for i in range (len(ds)):
             ds1.extend(ds[i])
         print('len_ds1: ',len(ds1))
-
+        ds1 = np.array(ds1)
         datal = th.utils.data.DataLoader(
                 ds1,
                 batch_size=args.batch_size,
