@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 
 
-#data_path = '/kaggle/input/camelyon'
-data_path = '/kaggle/input/camelyon16/data'
+data_path = '/root/camelyon16/data'
+#data_path = '/kaggle/input/camelyon16/data'
 #data_path = 'D:/medical_DF/data_camelyon
 
 def normalize(image):

@@ -1,6 +1,7 @@
 """
 Train a diffusion model on images.
 """
+
 import sys
 import argparse
 import torch as th

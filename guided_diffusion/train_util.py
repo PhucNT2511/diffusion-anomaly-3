@@ -24,6 +24,7 @@ def visualize(img):
     return normalized_img
 
 class TrainLoop:
+
     def __init__(
         self,
         *,
