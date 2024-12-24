@@ -355,14 +355,14 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=100001,
+        iterations=200001,
         lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=16,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="",
+        resume_checkpoint="checkpoint/classifier/model100000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
