@@ -295,11 +295,6 @@ def main():
         if not step % args.log_interval: # cứ 10 steps thì in ra một lần
             print('step', step + resume_step)
             logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
-            wandb.log({
-                "step": step,
-                "train_acc@1": losses['train_acc@1'].mean(),
-                "train_loss": losses['train_loss'].mean(),
-            })
         if (
             step
             and dist.get_rank() == 0
@@ -307,16 +302,16 @@ def main():
         ):
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
-        '''
-        if not (step+1) % (1959): ## số batch: 1959
+        
+        if not (step+1) % (3331): ## số batch: 3331
             wandb.log({
-                "epoch": (step+1)/(1959),
-                "train_acc@1": acc_epoch/1959/16,
-                "train_loss": loss_epoch/1959/16,
+                "epoch": (step+1)/(3331),
+                "train_acc@1": acc_epoch/3331/4,
+                "train_loss": loss_epoch/3331/4,
             })
             loss_epoch = 0
             acc_epoch = 0
-        '''
+        
 
     if dist.get_rank() == 0:
         logger.log("saving model...")
