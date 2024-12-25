@@ -104,6 +104,7 @@ def main():
 
         ds0 = CAMELYONDataset(mode="train", test_flag=False, transforms=0, model='classifier')
         
+        '''
         # Định nghĩa phép biến đổi xoay 90 độ
         ds1 = CAMELYONDataset(mode="train", test_flag=False, transforms=1, model='classifier')
 
@@ -115,9 +116,11 @@ def main():
 
         # Kết hợp tất cả các dataset lại
         ds_all = ConcatDataset([ds0, ds1, ds2, ds3])
+        '''
 
         datal = th.utils.data.DataLoader(
-                ds_all,
+                ds0,
+                #ds_all,
                 batch_size=args.batch_size,
                 shuffle=True)
         data = iter(datal)
@@ -292,6 +295,11 @@ def main():
         if not step % args.log_interval: # cứ 10 steps thì in ra một lần
             print('step', step + resume_step)
             logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
+            wandb.log({
+                "step": step,
+                "train_acc@1": losses['train_acc@1'].mean(),
+                "train_loss": losses['train_loss'].mean(),
+            })
         if (
             step
             and dist.get_rank() == 0
@@ -299,7 +307,7 @@ def main():
         ):
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
-        
+        '''
         if not (step+1) % (1959): ## số batch: 1959
             wandb.log({
                 "epoch": (step+1)/(1959),
@@ -308,6 +316,7 @@ def main():
             })
             loss_epoch = 0
             acc_epoch = 0
+        '''
 
     if dist.get_rank() == 0:
         logger.log("saving model...")
@@ -355,14 +364,14 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=200001,
-        lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu
+        iterations=100001,
+        lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=16,
+        batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model100000.pt",
+        resume_checkpoint="",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
