@@ -33,7 +33,7 @@ def classifier_defaults():
         image_size=256,  ###################### image_size = 64?? ####################
         classifier_use_fp16=False,
         classifier_width=32, ################# 128
-        classifier_depth=3, ################### 2
+        classifier_depth=4, ################### 4
         classifier_attention_resolutions="32,16,8",  # 16
         classifier_use_scale_shift_norm=True,  # False
         classifier_resblock_updown=True,  # False
