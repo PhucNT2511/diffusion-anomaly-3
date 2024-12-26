@@ -16,6 +16,7 @@ def normalize(image):
 def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
     """Main pre-processing function used for the challenge (seems to work the best).
     Remove outliers voxels first, then min-max scale.
+    1% -- 99%
     Warnings
     --------
     This will not do it channel wise!!
@@ -44,7 +45,7 @@ class BRATSDataset(torch.utils.data.Dataset):
         volume_ids = data_split[f'{mode}_folds'].item()[f'fold_{fold}']
         if not test_flag:
             self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
-        else:
+        else: ## test thì chỉ lấy những ảnh có label = 1
             self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids) & meta_data_df['label'] == 1]['path'].values
         print(f'Number of {mode} data: {len(self.datapaths)}')
 
