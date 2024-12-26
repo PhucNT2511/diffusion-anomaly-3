@@ -371,7 +371,7 @@ def create_argparser():
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/checkpoint/classifier/cls_added_model100000.pt",
+        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/cls_added_model100000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
