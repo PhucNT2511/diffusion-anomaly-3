@@ -74,14 +74,15 @@ def main():
         return soft_mask
     '''
 
+    ###
+    args = create_argparser().parse_args()
+
+    ########
     wandb.login(key="18867541319386f8b2e1362741174bd50968c3f3")
     wandb.init(
         project="brats-regularization-classifier",  # Replace with your project name
         config=args,  # Optionally log hyperparameters
     )
-
-    ###
-    args = create_argparser().parse_args()
 
     dist_util.setup_dist()
     logger.configure()
