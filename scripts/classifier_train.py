@@ -307,7 +307,7 @@ def main():
         ):
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
-        
+
         if not (step+1) % (3331): ## số batch: 3331
             wandb.log({
                 "epoch": (step+1)/(3331),
@@ -371,7 +371,7 @@ def create_argparser():
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model100000.pt",
+        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model200000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
