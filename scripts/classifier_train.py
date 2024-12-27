@@ -308,11 +308,11 @@ def main():
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
 
-        if not (step+1) % (3331): ## số batch: 3331
+        if not (step+1) % (len(datal)): ## số batch: len(datal)
             wandb.log({
-                "epoch": (step+1)/(3331),
-                "train_acc@1": acc_epoch/3331/4,
-                "train_loss": loss_epoch/3331/4,
+                "epoch": (step+1)/(len(datal)),
+                "train_acc@1": acc_epoch/len(datal)/4,
+                "train_loss": loss_epoch/len(datal)/4,
             })
             loss_epoch = 0
             acc_epoch = 0
@@ -364,14 +364,14 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=600001,
+        iterations=200001,
         lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model400000.pt",
+        resume_checkpoint='', #"/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model400000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
