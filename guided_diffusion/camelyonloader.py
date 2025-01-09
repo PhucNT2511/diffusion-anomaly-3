@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 
 
-data_path = '/camelyon16/data'
-#data_path = '/kaggle/input/camelyon16/data'
+#data_path = '/camelyon16/data'
+data_path = '/kaggle/input/camelyon16/data'
 #data_path = 'D:/medical_DF/data_camelyon
 
 def normalize(image):
@@ -58,9 +58,9 @@ class CAMELYONDataset(torch.utils.data.Dataset):
 
         elif (model =="classifier"):
             if (mode == "train"):
-                paths = os.listdir(data_path +'/classifier/train')
+                paths = os.listdir(data_path +'/unet')
                 for path in paths:
-                    full_path = os.path.join(data_path + '/classifier/train', path)  # Kết hợp đường dẫn đầy đủ
+                    full_path = os.path.join(data_path + '/unet', path)  # Kết hợp đường dẫn đầy đủ
                     self.datapaths.append(full_path)    
             if (mode == "val"):
                 paths = os.listdir(data_path +'/classifier/val')
