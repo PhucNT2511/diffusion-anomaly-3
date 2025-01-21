@@ -58,9 +58,9 @@ class CAMELYONDataset(torch.utils.data.Dataset):
 
         elif (model =="classifier"):
             if (mode == "train"):
-                paths = os.listdir(data_path +'/unet')
+                paths = os.listdir(data_path +'/classifier/train')
                 for path in paths:
-                    full_path = os.path.join(data_path + '/unet', path)  # Kết hợp đường dẫn đầy đủ
+                    full_path = os.path.join(data_path + '/classifier/train', path)  # Kết hợp đường dẫn đầy đủ
                     self.datapaths.append(full_path)    
             if (mode == "val"):
                 paths = os.listdir(data_path +'/classifier/val')
