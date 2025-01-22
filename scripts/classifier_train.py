@@ -377,7 +377,7 @@ def create_argparser():
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
         dataset='camelyon',
         max_L=1000,
-        transform=False,
+        transform=True,
     )
     defaults.update(classifier_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
