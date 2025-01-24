@@ -1,13 +1,13 @@
 """
-Train a noised image classifier on ImageNet.
+Train a noised image resnet50 on ImageNet.
 """
-import wandb
+
 import argparse
 import os
 import sys
 sys.path.append("..")
 sys.path.append(".")
-from guided_diffusion.camelyonloader import CAMELYONDataset
+from guided_diffusion.bratsloader import BRATSDataset
 # from guided_diffusion.litsloader import LiTSDataset
 
 import blobfile as bf
@@ -17,7 +17,6 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
-from torch.utils.data import ConcatDataset
 # from visdom import Visdom
 import numpy as np
 # viz = Visdom(port=8850)
@@ -37,32 +36,41 @@ from guided_diffusion.script_util import (
     create_classifier_and_diffusion,
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
-
+import torchvision.models as models
+import torch.nn as nn
 
 
 def main():
-    wandb.login(key="18867541319386f8b2e1362741174bd50968c3f3")
+    # model is classifier, diffusion is Unet
+    # diffusion model
     args = create_argparser().parse_args()
-
-    wandb.init(
-        project="noised-image-classifier",  # Replace with your project name
-        config=args,  # Optionally log hyperparameters
-    )
 
     dist_util.setup_dist()
     logger.configure()
 
-    logger.log("creating model and diffusion...")
-    model, diffusion = create_classifier_and_diffusion(
+    logger.log("creating diffusion...")
+    _, diffusion = create_classifier_and_diffusion(
         **args_to_dict(args, classifier_and_diffusion_defaults().keys()),
-    )
-    model.to(dist_util.dev())
+    ) 
     if args.noised:
         schedule_sampler = create_named_schedule_sampler(
             args.schedule_sampler, diffusion, maxt=args.max_L
         )
-    
+    logger.log("creating classifier model...")
+    #classifier model is Resnet - define
+    model = models.resnet50(pretrained = True)
+
+    # Thay đổi lớp conv1 để chấp nhận đầu vào 1 kênh
+    model.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=True)
+
+    # Số lớp đầu ra chỉ là 2
+    n_features = 2  # Số lớp bạn cần
+    model.fc = nn.Linear(model.fc.in_features, n_features)
+    model.to(dist_util.dev())
+
     resume_step = 0
+
+    ##########Load checkpoint if needed
     if args.resume_checkpoint:
         resume_step = parse_resume_step_from_filename(args.resume_checkpoint)
         if dist.get_rank() == 0:
@@ -88,6 +96,7 @@ def main():
                 transforms.RandomRotation(90)
     ], p=0.5)
     transform = data_transform if args.transform else None
+
     model = DDP(
         model,
         device_ids=[dist_util.dev()],
@@ -96,35 +105,18 @@ def main():
         bucket_cap_mb=128,
         find_unused_parameters=False,
     )
-        
+
+    ############## Dataloading    
     logger.log("creating data loader...")
 
-    if args.dataset == 'camelyon':
-        print("Training on CAMELYON-16 dataset")
-
-        ds0 = CAMELYONDataset(mode="train", test_flag=False, transforms=0, model='classifier')
-        
-        '''
-        # Định nghĩa phép biến đổi xoay 90 độ
-        ds1 = CAMELYONDataset(mode="train", test_flag=False, transforms=1, model='classifier')
-
-        # Định nghĩa phép biến đổi xoay 180 độ
-        ds2 = CAMELYONDataset(mode="train", test_flag=False, transforms=2, model='classifier')
-
-        # Định nghĩa phép biến đổi xoay 270 độ
-        ds3 = CAMELYONDataset(mode="train", test_flag=False, transforms=3, model='classifier')
-
-        # Kết hợp tất cả các dataset lại
-        ds_all = ConcatDataset([ds0, ds1, ds2, ds3])
-        '''
-
+    if args.dataset == 'brats':
+        print("Training on BRATS-20 dataset")
+        ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
         datal = th.utils.data.DataLoader(
-                ds0,
-                #ds_all,
-                batch_size=args.batch_size,
-                shuffle=True)
+            ds,
+            batch_size=args.batch_size,
+            shuffle=True)
         data = iter(datal)
-        print('train_datal_len: ',len(datal))
 
     # elif args.dataset == 'lits':
     #     print("Training on LiTS dataset")
@@ -137,18 +129,20 @@ def main():
     #     data = iter(datal)
 
     try:
-        val_ds = CAMELYONDataset(mode="val", test_flag=False, model='classifier')
+        val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
         val_datal = th.utils.data.DataLoader(
             val_ds,
             batch_size=args.batch_size,
             shuffle=True)
         val_data = iter(val_datal)
-        print('val_datal_len: ',len(val_datal))
     except:
         val_data = None
-
+    
+    ############## Optimizer
     logger.log(f"creating optimizer...")
     opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
+
+    ################ Load checkpoints
     if args.resume_checkpoint:
         opt_checkpoint = bf.join(
             bf.dirname(args.resume_checkpoint), f"opt{resume_step:06}.pt"
@@ -157,10 +151,10 @@ def main():
         opt.load_state_dict(
             dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
         )
-     
-   
-    logger.log("training classifier model...")
 
+    ################## Training model
+    logger.log("training classifier model...")
+    ## Validate after training
     def validation_log(val_data_load):
         data_loader = iter(val_data_load)
         accuracies = []
@@ -171,12 +165,12 @@ def main():
             data_size += batch.shape[0]
             batch = batch.to(dist_util.dev())
             labels= labels.to(dist_util.dev())
-            t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
-            for i, (sub_batch, sub_labels, sub_t) in enumerate(
-                split_microbatches(args.microbatch, batch, labels, t)
+            ########### Split batches into minibatches
+            for i, (sub_batch, sub_labels) in enumerate(
+                split_microbatches(args.microbatch, batch, labels)
             ):
             
-                logits = model(sub_batch, timesteps=sub_t) 
+                logits = model(sub_batch)
             
                 loss = F.cross_entropy(logits, sub_labels, reduction="none")
                 loss = loss.mean()
@@ -187,10 +181,9 @@ def main():
                 losses.append(loss.mean().item())
                 accuracies.append(accuracy.mean().item())
         print(f"Validation dataset size: {data_size}")
-
-        return np.mean(losses), np.mean(accuracies) # Transform to numpy
+        return np.mean(losses), np.mean(accuracies)
     
-    
+    ## In training process
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
             batch, _, labels, _ = next(data_loader)
@@ -204,20 +197,18 @@ def main():
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
-            batch = diffusion.q_sample(batch, t)
+            batch = diffusion.q_sample(batch, t) ############### noising data
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
-        ## Calculate for 1 batch
-        for i, (sub_batch, sub_labels, sub_t) in enumerate(
-            split_microbatches(args.microbatch, batch, labels, t)
+        for i, (sub_batch, sub_labels,sub_t) in enumerate(
+            split_microbatches(args.microbatch, batch, labels,t) ############## xem có cần chỉnh sửa khi bỏ t đi không
         ):
           
-            logits = model(sub_batch, timesteps=sub_t)
+            logits = model(sub_batch)
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none")
             losses = {}
-            # calculate loss & acc@1 in 1 batch of val and train set
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
                 logits, sub_labels, k=1, reduction="none"
@@ -226,8 +217,8 @@ def main():
             #     logits, sub_labels, k=2, reduction="none"
             # )
             # print('acc', losses[f"{prefix}_acc@1"])
-            log_loss_dict(diffusion, sub_t, losses)
-            loss = loss.mean() ## mean loss, but don't return this value
+            log_loss_dict(diffusion,sub_t, losses) ################# tính loss cho các phân vị
+            loss = loss.mean()
 #             if prefix=="train":
 #                 pass
 # #                 viz.line(X=th.ones((1, 1)).cpu() * step, Y=th.Tensor([loss]).unsqueeze(0).cpu(),
@@ -256,50 +247,47 @@ def main():
 
         return losses
 
-    #### every step 
-    loss_epoch = 0
-    acc_epoch = 0
+#### every step 
+    correct=0; total=0
+    training_losses=[]
+    val_losses = []
+    val_accuracies = []
     for step in range(args.iterations - resume_step):
-        # logger.logkv sẽ lưu lại toàn bộ giá trị, và thực chất là lưu lại của vòng lặp trước đó
         logger.logkv("step", step + resume_step)
-        # ở đây cũng chỉ ghi thêm "samples" thứ bn thôi, còn các giá trị khác của loss đã lưu hết ở hàm log_loss_dict
         logger.logkv(
             "samples",
             (step + resume_step + 1) * args.batch_size * dist.get_world_size(),
         )
-    
         if args.anneal_lr:
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
-        loss_epoch += losses['train_loss'].sum()
-        acc_epoch += losses['train_acc@1'].sum()
+
+        correct+=losses["train_acc@1"].sum() #
+        total+=args.batch_size
+        if (step % len(datal)==0):
+            acctrain=correct/total
+            correct=0; total=0
+            print('mean training accuracy: ',acctrain)
+            training_losses.append(acctrain)
 
         mp_trainer.optimize(opt)
-        # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
+        # calculate val_accuracy & loss in all of validation dataset
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
-                    ## Sau 1000 steps wandb lưu lại thông số của validate
-                    wandb.log({
-                        "step": step + resume_step,
-                        "val_acc": val_accuracy,
-                        "val_loss": val_loss,
-                    })
+                    val_losses.append(val_loss)
+                    val_accuracies.append(val_accuracy)
+                    print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
                     model.train()
 
-        if not step % args.log_interval: # cứ 10 steps thì in ra một lần
+        if not step % args.log_interval:
             print('step', step + resume_step)
-            logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
-            wandb.log({
-                "step": step,
-                "train_acc@1_10_step": losses['train_acc@1'].mean(),
-                "train_loss_10_step": losses['train_loss'].mean(),
-            })
+            logger.dumpkvs()
         if (
             step
             and dist.get_rank() == 0
@@ -308,20 +296,26 @@ def main():
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
 
-        if not (step+1) % (len(datal)): ## số batch: len(datal)
-            wandb.log({
-                "epoch": (step+1)/(len(datal)),
-                "train_acc@1": acc_epoch/len(datal)/args.batch_size,
-                "train_loss": loss_epoch/len(datal)/args.batch_size,
-            })
-            loss_epoch = 0
-            acc_epoch = 0
-        
-
     if dist.get_rank() == 0:
         logger.log("saving model...")
         save_model(mp_trainer, opt, step + resume_step)
     dist.barrier()
+
+    # Ensure the directory 'training_losses' exists
+    os.makedirs("/kaggle/working/training_losses", exist_ok=True)
+    os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
+
+    # Convert training_losses list to a NumPy array
+    training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
+
+    val_1000 = {
+        'loss': np.array(val_losses),
+        'acc':np.array(val_accuracies),
+    }
+
+    # Save it as a .npy file
+    np.save("/kaggle/working/training_losses/training_losses.npy", training_losses_array)
+    np.save("/kaggle/working/1000_step_validation/1000_step_validation.npy", val_1000)
 
 
 def set_annealed_lr(opt, base_lr, frac_done):
@@ -364,28 +358,26 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True,
-        iterations=100001,
-        lr=(3e-4)/2, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        iterations=30000,
+        lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=32,
+        batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model050000.pt",
+        resume_checkpoint="",
         log_interval=10,
-        eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
-        save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
-        dataset='camelyon',
+        eval_interval=1000,
+        save_interval=10000,
+        dataset='brats',
         max_L=1000,
-        transform=True,
+        fold=1,
+        transform=False,
     )
     defaults.update(classifier_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
     return parser
 
-
 if __name__ == "__main__":
     main()
-
-################### Rõ ràng dữ liệu có vấn đề, cần nghiêm túc điều tra lại toàn bộ dữ liệu
