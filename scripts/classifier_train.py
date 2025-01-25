@@ -365,13 +365,13 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=(3e-4)/2, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        lr=1e-5, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model050000.pt",
+        resume_checkpoint='',#"/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model050000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
