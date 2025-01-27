@@ -368,7 +368,7 @@ def create_argparser():
         lr=5e-5, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=64,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint='',#"/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model030000.pt",
