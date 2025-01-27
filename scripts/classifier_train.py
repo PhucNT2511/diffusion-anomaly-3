@@ -365,10 +365,10 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=1e-5, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        lr=5e-5, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0,
-        anneal_lr=False,
-        batch_size=32,
+        anneal_lr=True,
+        batch_size=64,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint='',#"/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model030000.pt",
