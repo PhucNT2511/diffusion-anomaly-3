@@ -16,7 +16,7 @@ import torch as th
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
-from torch.optim import AdamW
+from torch.optim import AdamW,SGD
 from torch.utils.data import ConcatDataset
 # from visdom import Visdom
 import numpy as np
@@ -149,6 +149,7 @@ def main():
 
     logger.log(f"creating optimizer...")
     opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
+    #opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=args.weight_decay, nesterov= True)
     if args.resume_checkpoint:
         opt_checkpoint = bf.join(
             bf.dirname(args.resume_checkpoint), f"opt{resume_step:06}.pt"
@@ -365,8 +366,8 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=1e-6, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
-        weight_decay=0.1, #########
+        lr=1e-3, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        weight_decay=5e-4, #########
         anneal_lr=False,
         batch_size=32,
         microbatch=-1,
