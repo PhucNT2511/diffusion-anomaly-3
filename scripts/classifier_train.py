@@ -206,7 +206,7 @@ def main():
 
         return np.mean(losses), np.mean(accuracies) # Transform to numpy
     
-    
+    ###########
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
             batch, _, labels, _ = next(data_loader)
@@ -293,6 +293,7 @@ def main():
         acc_epoch += losses['train_acc@1'].sum()
 
         mp_trainer.optimize(opt)
+        ################# Add after using scheduler Cos
         scheduler.step()
         # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:

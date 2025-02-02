@@ -1,13 +1,13 @@
 """
 Train a noised image resnet50 on ImageNet.
 """
-
+import wandb
 import argparse
 import os
 import sys
 sys.path.append("..")
 sys.path.append(".")
-from guided_diffusion.bratsloader import BRATSDataset
+from guided_diffusion.camelyonloader import CAMELYONDataset
 # from guided_diffusion.litsloader import LiTSDataset
 
 import blobfile as bf
@@ -41,9 +41,17 @@ import torch.nn as nn
 
 
 def main():
+
+    wandb.login(key="18867541319386f8b2e1362741174bd50968c3f3")
+
     # model is classifier, diffusion is Unet
     # diffusion model
     args = create_argparser().parse_args()
+
+    wandb.init(
+        project="noised-image-classifier",  # Replace with your project name
+        config=args,  # Optionally log hyperparameters
+    )
 
     dist_util.setup_dist()
     logger.configure()
@@ -60,8 +68,10 @@ def main():
     #classifier model is Resnet - define
     model = models.resnet50(pretrained = True)
 
-    # Thay đổi lớp conv1 để chấp nhận đầu vào 1 kênh
-    model.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=True)
+    '''
+    # Thay đổi lớp conv1 để chấp nhận đầu vào 3 kênh
+    model.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=True)
+    '''
 
     # Số lớp đầu ra chỉ là 2
     n_features = 2  # Số lớp bạn cần
@@ -109,14 +119,17 @@ def main():
     ############## Dataloading    
     logger.log("creating data loader...")
 
-    if args.dataset == 'brats':
-        print("Training on BRATS-20 dataset")
-        ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
+    if args.dataset == 'camelyon':
+        print("Training on CAMELYON-16 dataset")
+
+        ds = CAMELYONDataset(mode="train", test_flag=False, transforms=0, model='classifier')
         datal = th.utils.data.DataLoader(
-            ds,
-            batch_size=args.batch_size,
-            shuffle=True)
+                ds,
+                #ds_all,
+                batch_size=args.batch_size,
+                shuffle=True)
         data = iter(datal)
+        print('train_datal_len: ',len(datal))
 
     # elif args.dataset == 'lits':
     #     print("Training on LiTS dataset")
@@ -129,12 +142,13 @@ def main():
     #     data = iter(datal)
 
     try:
-        val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
+        val_ds = CAMELYONDataset(mode="val", test_flag=False, model='classifier')
         val_datal = th.utils.data.DataLoader(
             val_ds,
             batch_size=args.batch_size,
             shuffle=True)
         val_data = iter(val_datal)
+        print('val_datal_len: ',len(val_datal))
     except:
         val_data = None
     
@@ -165,12 +179,12 @@ def main():
             data_size += batch.shape[0]
             batch = batch.to(dist_util.dev())
             labels= labels.to(dist_util.dev())
-            ########### Split batches into minibatches
-            for i, (sub_batch, sub_labels) in enumerate(
-                split_microbatches(args.microbatch, batch, labels)
+            t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
+            for i, (sub_batch, sub_labels, sub_t) in enumerate(
+                split_microbatches(args.microbatch, batch, labels, t)
             ):
             
-                logits = model(sub_batch)
+                logits = model(sub_batch, timesteps=sub_t) 
             
                 loss = F.cross_entropy(logits, sub_labels, reduction="none")
                 loss = loss.mean()
@@ -181,9 +195,9 @@ def main():
                 losses.append(loss.mean().item())
                 accuracies.append(accuracy.mean().item())
         print(f"Validation dataset size: {data_size}")
-        return np.mean(losses), np.mean(accuracies)
+
+        return np.mean(losses), np.mean(accuracies) # Transform to numpy
     
-    ## In training process
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
             batch, _, labels, _ = next(data_loader)
@@ -197,18 +211,20 @@ def main():
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
-            batch = diffusion.q_sample(batch, t) ############### noising data
+            batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
-        for i, (sub_batch, sub_labels,sub_t) in enumerate(
-            split_microbatches(args.microbatch, batch, labels,t) ############## xem có cần chỉnh sửa khi bỏ t đi không
+        ## Calculate for 1 batch
+        for i, (sub_batch, sub_labels, sub_t) in enumerate(
+            split_microbatches(args.microbatch, batch, labels, t)
         ):
           
-            logits = model(sub_batch)
+            logits = model(sub_batch, timesteps=sub_t)
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none")
             losses = {}
+            # calculate loss & acc@1 in 1 batch of val and train set
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
                 logits, sub_labels, k=1, reduction="none"
@@ -217,8 +233,8 @@ def main():
             #     logits, sub_labels, k=2, reduction="none"
             # )
             # print('acc', losses[f"{prefix}_acc@1"])
-            log_loss_dict(diffusion,sub_t, losses) ################# tính loss cho các phân vị
-            loss = loss.mean()
+            log_loss_dict(diffusion, sub_t, losses)
+            loss = loss.mean() ## mean loss, but don't return this value
 #             if prefix=="train":
 #                 pass
 # #                 viz.line(X=th.ones((1, 1)).cpu() * step, Y=th.Tensor([loss]).unsqueeze(0).cpu(),
@@ -247,47 +263,50 @@ def main():
 
         return losses
 
-#### every step 
-    correct=0; total=0
-    training_losses=[]
-    val_losses = []
-    val_accuracies = []
+    #### every step 
+    loss_epoch = 0
+    acc_epoch = 0
     for step in range(args.iterations - resume_step):
+        # logger.logkv sẽ lưu lại toàn bộ giá trị, và thực chất là lưu lại của vòng lặp trước đó
         logger.logkv("step", step + resume_step)
+        # ở đây cũng chỉ ghi thêm "samples" thứ bn thôi, còn các giá trị khác của loss đã lưu hết ở hàm log_loss_dict
         logger.logkv(
             "samples",
             (step + resume_step + 1) * args.batch_size * dist.get_world_size(),
         )
+    
         if args.anneal_lr:
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
-
-        correct+=losses["train_acc@1"].sum() #
-        total+=args.batch_size
-        if (step % len(datal)==0):
-            acctrain=correct/total
-            correct=0; total=0
-            print('mean training accuracy: ',acctrain)
-            training_losses.append(acctrain)
+        loss_epoch += losses['train_loss'].sum()
+        acc_epoch += losses['train_acc@1'].sum()
 
         mp_trainer.optimize(opt)
-        # calculate val_accuracy & loss in all of validation dataset
+        # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
                     forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
-                    val_losses.append(val_loss)
-                    val_accuracies.append(val_accuracy)
-                    print(f"Validation loss: {val_loss} - Validation accuracy: {val_accuracy}")
+                    ## Sau 1000 steps wandb lưu lại thông số của validate
+                    wandb.log({
+                        "step": step + resume_step,
+                        "val_acc": val_accuracy,
+                        "val_loss": val_loss,
+                    })
                     model.train()
 
-        if not step % args.log_interval:
+        if not step % args.log_interval: # cứ 10 steps thì in ra một lần
             print('step', step + resume_step)
-            logger.dumpkvs()
+            logger.dumpkvs() #logger.logkv đã lưu rồi thì logger.dumpkvs() sẽ in ra giá trị cuối cùng được lưu lại trong logger
+            wandb.log({
+                "step": step,
+                "train_acc@1_10_step": losses['train_acc@1'].mean(),
+                "train_loss_10_step": losses['train_loss'].mean(),
+            })
         if (
             step
             and dist.get_rank() == 0
@@ -296,27 +315,20 @@ def main():
             logger.log("saving model...")
             save_model(mp_trainer, opt, step + resume_step)
 
+        if not (step+1) % (len(datal)): ## số batch: len(datal)
+            wandb.log({
+                "epoch": (step+1)/(len(datal)),
+                "train_acc@1": acc_epoch/len(datal)/args.batch_size,
+                "train_loss": loss_epoch/len(datal)/args.batch_size,
+            })
+            loss_epoch = 0
+            acc_epoch = 0
+        
+
     if dist.get_rank() == 0:
         logger.log("saving model...")
         save_model(mp_trainer, opt, step + resume_step)
     dist.barrier()
-
-    # Ensure the directory 'training_losses' exists
-    os.makedirs("/kaggle/working/training_losses", exist_ok=True)
-    os.makedirs("/kaggle/working/1000_step_validation", exist_ok=True)
-
-    # Convert training_losses list to a NumPy array
-    training_losses_array = np.array([i.cpu().numpy() for i in training_losses])
-
-    val_1000 = {
-        'loss': np.array(val_losses),
-        'acc':np.array(val_accuracies),
-    }
-
-    # Save it as a .npy file
-    np.save("/kaggle/working/training_losses/training_losses.npy", training_losses_array)
-    np.save("/kaggle/working/1000_step_validation/1000_step_validation.npy", val_1000)
-
 
 def set_annealed_lr(opt, base_lr, frac_done):
     lr = base_lr * (1 - frac_done)
@@ -362,17 +374,17 @@ def create_argparser():
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=4,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
-        dataset='brats',
+        dataset='camelyon',
         max_L=1000,
         fold=1,
-        transform=False,
+        transform=True,
     )
     defaults.update(classifier_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
