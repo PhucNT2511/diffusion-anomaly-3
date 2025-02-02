@@ -16,7 +16,7 @@ import torch as th
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
-from torch.optim import AdamW,SGD
+from torch.optim import AdamW,SGD, lr_scheduler
 from torch.utils.data import ConcatDataset
 # from visdom import Visdom
 import numpy as np
@@ -147,9 +147,24 @@ def main():
     except:
         val_data = None
 
+    #################################################################################
     logger.log(f"creating optimizer...")
-    opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
-    #opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=args.weight_decay, nesterov= True)
+    #opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
+    opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=5e-4, nesterov= True)
+
+    total_steps = args.iterations
+    warmup_steps = 5 * len(datal) ## 5 epochs warmup
+    scheduler = lr_scheduler.OneCycleLR(
+        opt,
+        max_lr=args.lr,
+        total_steps=total_steps,
+        pct_start=warmup_steps/total_steps,
+        div_factor=10,
+        final_div_factor=1e4,
+        anneal_strategy='cos'
+    )
+    #####################################################################################
+    
     if args.resume_checkpoint:
         opt_checkpoint = bf.join(
             bf.dirname(args.resume_checkpoint), f"opt{resume_step:06}.pt"
@@ -278,6 +293,7 @@ def main():
         acc_epoch += losses['train_acc@1'].sum()
 
         mp_trainer.optimize(opt)
+        scheduler.step()
         # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
@@ -366,7 +382,7 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=1e-3, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        lr=1e-2, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=5e-4, #########
         anneal_lr=False,
         batch_size=32,
