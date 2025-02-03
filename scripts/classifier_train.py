@@ -150,7 +150,8 @@ def main():
     #################################################################################
     logger.log(f"creating optimizer...")
     opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
-    #opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=5e-4, nesterov= True)
+    '''
+    opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=5e-4, nesterov= True)
 
     total_steps = args.iterations
     warmup_steps = 5 * len(datal) ## 5 epochs warmup
@@ -163,6 +164,7 @@ def main():
         final_div_factor=1e4,
         anneal_strategy='cos'
     )
+    '''
     #####################################################################################
     
     if args.resume_checkpoint:
@@ -383,7 +385,7 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=4e-3, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0, #########
         anneal_lr=True,
         batch_size=32,
