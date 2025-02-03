@@ -220,7 +220,7 @@ def main():
             split_microbatches(args.microbatch, batch, labels, t)
         ):
           
-            logits = model(sub_batch, timesteps=sub_t)
+            logits = model(sub_batch)
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none")
             losses = {}
