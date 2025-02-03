@@ -287,7 +287,8 @@ def main():
         )
     
         if args.anneal_lr:
-            set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
+            #set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
+            scheduler.step()
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
@@ -295,8 +296,7 @@ def main():
         acc_epoch += losses['train_acc@1'].sum()
 
         mp_trainer.optimize(opt)
-        ################# Add after using scheduler Cos
-        scheduler.step()
+        
         # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
@@ -387,7 +387,7 @@ def create_argparser():
         iterations=100001,
         lr=1e-3, ########## 3e-4 - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=5e-4, ######### 0.0
-        anneal_lr=False, ########### True 
+        anneal_lr=True,
         batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
