@@ -384,7 +384,7 @@ def create_argparser():
         noised=True,
         iterations=100001,
         lr=4e-3, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
-        weight_decay=5e-4, #########
+        weight_decay=0.0, #########
         anneal_lr=True,
         batch_size=32,
         microbatch=-1,
