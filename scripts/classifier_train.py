@@ -383,7 +383,7 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=50001,
-        lr=1e-1, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        lr=1e-3, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=5e-4, #########
         anneal_lr=False,
         batch_size=32,
