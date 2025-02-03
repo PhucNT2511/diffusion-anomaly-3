@@ -79,9 +79,10 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         image = np.array(data['image'])
         mask = np.array(data['mask'])
 
-        
-        image = np.rot90(image, k=self.transforms, axes=(0, 1))
-        mask = np.rot90(mask, k=self.transforms, axes=(0, 1))
+        '''
+        image = np.rot90(image, k=0, axes=(0, 1))
+        mask = np.rot90(mask, k=0, axes=(0, 1))
+        '''
         
         ##
         image = np.transpose(image, [2, 0, 1])
