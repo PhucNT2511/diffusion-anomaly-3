@@ -160,7 +160,7 @@ def main():
         total_steps=total_steps,
         pct_start=warmup_steps/total_steps,
         div_factor=10,
-        final_div_factor=1e4,
+        final_div_factor=1e5,
         anneal_strategy='cos'
     )
     #####################################################################################
