@@ -149,8 +149,8 @@ def main():
 
     #################################################################################
     logger.log(f"creating optimizer...")
-    opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
-    '''
+    #opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
+    
     opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=5e-4, nesterov= True)
 
     total_steps = args.iterations
@@ -164,7 +164,7 @@ def main():
         final_div_factor=1e4,
         anneal_strategy='cos'
     )
-    '''
+    
     #####################################################################################
     
     if args.resume_checkpoint:
@@ -296,7 +296,7 @@ def main():
 
         mp_trainer.optimize(opt)
         ################# Add after using scheduler Cos
-        #scheduler.step()
+        scheduler.step()
         # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
             with th.no_grad():
@@ -385,9 +385,9 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=3e-4, ########## Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
-        weight_decay=0.0, #########
-        anneal_lr=True,
+        lr=1e-3, ########## 3e-4 - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        weight_decay=5e-4, ######### 0.0
+        anneal_lr=False, ########### True 
         batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
