@@ -102,7 +102,7 @@ def main():
     if args.dataset == 'camelyon':
         print("Training on CAMELYON-16 dataset")
 
-        ds0 = CAMELYONDataset(mode="train", test_flag=False, transforms=0, model='classifier')
+        ds0 = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
         
         '''
         # Định nghĩa phép biến đổi xoay 90 độ
@@ -160,7 +160,7 @@ def main():
         total_steps=total_steps,
         pct_start=warmup_steps/total_steps,
         div_factor=10,
-        final_div_factor=1e5,
+        final_div_factor=1e4,
         anneal_strategy='cos'
     )
     #####################################################################################

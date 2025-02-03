@@ -40,7 +40,7 @@ def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
     return image
 
 class CAMELYONDataset(torch.utils.data.Dataset):
-    def __init__(self, mode="train", test_flag = False, transforms=0, model = "unet"):
+    def __init__(self, mode="train", test_flag = False, transforms=None, model = "unet"):
     
         super().__init__()
         self.transforms = transforms
@@ -92,6 +92,9 @@ class CAMELYONDataset(torch.utils.data.Dataset):
         ####################### Init cond = None
         cond = {}
         cond['y'] = label 
+
+        if self.transforms:
+            image = self.transforms(torch.Tensor(image))
 
         return np.float32(image), cond, label, np.float32(mask)
 

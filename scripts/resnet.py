@@ -122,10 +122,9 @@ def main():
     if args.dataset == 'camelyon':
         print("Training on CAMELYON-16 dataset")
 
-        ds = CAMELYONDataset(mode="train", test_flag=False, transforms=0, model='classifier')
+        ds = CAMELYONDataset(mode="train", test_flag=False, transforms=transform, model='classifier')
         datal = th.utils.data.DataLoader(
                 ds,
-                #ds_all,
                 batch_size=args.batch_size,
                 shuffle=True)
         data = iter(datal)
