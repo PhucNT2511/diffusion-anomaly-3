@@ -149,8 +149,8 @@ def main():
 
     #################################################################################
     logger.log(f"creating optimizer...")
-    #opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
-    
+    opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
+    '''
     opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=5e-4, nesterov= True)
 
     total_steps = args.iterations
@@ -164,7 +164,7 @@ def main():
         final_div_factor=1e4,
         anneal_strategy='cos'
     )
-    
+    '''
     #####################################################################################
     
     if args.resume_checkpoint:
@@ -287,8 +287,8 @@ def main():
         )
     
         if args.anneal_lr:
-            #set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
-            scheduler.step()
+            set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
+            #scheduler.step()
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
@@ -385,13 +385,13 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=100001,
-        lr=1e-3, ########## 3e-4 - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
-        weight_decay=5e-4, ######### 0.0
+        lr=3e-4, ########## 1e-3-SGD / 3e-4 ADAMW - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        weight_decay=0.0, ######### 5e-4-SGD; 0.0 ADAMW 
         anneal_lr=True,
         batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint='',#"/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model030000.pt",
+        resume_checkpoint="/kaggle/working/diffusion-anomaly-3/checkpoint/classifier/model050000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
