@@ -7,12 +7,6 @@ import numpy as np
 import torch.nn.functional as F
 import pickle
 
-
-path1 = 'link train model unet - toàn normal hết - 6000 ảnh trong BRATS20 - huấn luyện 4/5 fold'
-path2 = 'link train classifier + mạng VAEs - gồm cả normals và anomaly, mỗi loại một nửa - chỉ 1 tập duy nhất - cho all'
-path3 = 'test - fold còn lại'
-path4 = 'lưu các saliency của tất cả'
-
 #Hai hàm này ko có vấn đề gì
 def normalize(image):
     """Basic min max scaler.
@@ -66,9 +60,9 @@ class BRATSDataset(torch.utils.data.Dataset):
         
         ############## Cần dẫn link cho 2 nhóm, một nhóm toàn link positive, 1 nhóm toàn link negative. Hoặc dùng chung nhưng phải có lable
         if self.only_positive:
-            self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids) & meta_data_df['label'] == 1]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['path'].values
         elif self.only_negative:
-            self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids) & meta_data_df['label'] == 0]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 0)]['path'].values
         else:
             self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
 
@@ -120,9 +114,9 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         
         ############## Cần dẫn link cho 2 nhóm, một nhóm toàn link positive, 1 nhóm toàn link negative. Hoặc dùng chung nhưng phải có lable
         if self.only_positive:
-            self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids) & meta_data_df['label'] == 1]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['path'].values
         elif self.only_negative:
-            self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids) & meta_data_df['label'] == 0]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 0)]['path'].values
         else:
             self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
 
