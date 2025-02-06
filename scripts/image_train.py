@@ -70,7 +70,7 @@ def main():
                     fold=args.fold, 
                     transforms=None,
                     only_positive = False,
-                    only_negative = True)
+                    only_negative = False)
 
 
     loader = DataLoader(
