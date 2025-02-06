@@ -76,7 +76,7 @@ np.random.seed(args.seed)  # set seed
 random.seed(args.seed)
 
 device = (
-    torch.cuda()
+    torch.cuda.current_device()
     if torch.cuda.is_available()
     else "cpu"
 )
