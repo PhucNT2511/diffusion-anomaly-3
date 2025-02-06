@@ -88,9 +88,6 @@ class BRATSDataset(torch.utils.data.Dataset):
         padding_mask[8:-8, 8:-8] = mask
         label = 1 if np.sum(mask) > 0 else 0
 
-        if self.only_flair:
-            im = ((im[0, :, :]).unsqueeze(0))
-
         if self.transforms:
             padding_image = self.transforms(torch.Tensor(padding_image))
         return torch.tensor(padding_image, dtype= torch.float32), label, torch.tensor(padding_mask, dtype = torch.float32), self.datapaths[idx]
