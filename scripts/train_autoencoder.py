@@ -163,8 +163,8 @@ def train_iter( model, x, ids, iteration, epoch, set_name, train_loss):
 
     x = x.to(device)
     model = model.train()
-    z = model.module.encoder(x)
-    x_hat = model.module.decoder(z)
+    z = model.encoder(x)
+    x_hat = model.decoder(z)
 
     loss = criterion(x_hat, x)
 
@@ -190,8 +190,8 @@ def eval_iter(model, x, ids, iteration, epoch, set_name, eval_loss):
 
     with torch.no_grad():
         model = model.eval()
-        z = model.module.encoder(x)
-        x_hat = model.module.decoder(z)
+        z = model.encoder(x)
+        x_hat = model.decoder(z)
         loss = criterion(x_hat, x)
 
 
