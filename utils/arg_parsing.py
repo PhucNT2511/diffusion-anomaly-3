@@ -239,6 +239,10 @@ def parse_args():
         "-mom", "--momentum", type=float, default=0.9, help="Momentum multiplier"
     )
 
+    parser.add_argument(
+        "--fold", type=int, default=1, help="Fold dataset"
+    )
+
     args = parser.parse_args()
 
     if args.filepath_to_arguments_json_config is not None:
