@@ -186,9 +186,9 @@ for loader in [train_loader, val_loader]:
             dimage = dimage*(1.0 / torch.amax(dimage, dim=(-3, -2, -1), keepdim=True))
             ############## Dimage tìm ra có 4 chiều
             for j in range(inputs.shape[0]):
-                print(dimage[j].shape)
-                path = os.path.join(saliency_root, name[j][39:-4] + '.png')
-                imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,:,:, :]))
+                for i, level in enumerate(['flair', 't1', 't2', 't1ce']):
+                    path = os.path.join(saliency_root, name[j][39:-4] + level + '.png')
+                    imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,i, :, :]))
 
 ########## 
 

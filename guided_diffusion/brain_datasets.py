@@ -140,11 +140,14 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         if self.transforms:
             padding_image = self.transforms(torch.Tensor(padding_image))
 
-        sal = os.path.join(self.saliency_root_folder_filepath, self.datapaths[idx][39:-4] + '.png')
-        sal = imageio.imread(sal)
-        sal = torch.tensor(sal, dtype=torch.float32)
-        for i in range(4):
-            sal[i] = sal[i]/torch.max(sal[i])
+        raw_sal = []
+        for level in ['flair', 't1', 't2', 't1ce']:
+            sal = os.path.join(self.saliency_root_folder_filepath, self.datapaths[idx][39:-4] + level + '.png')
+            sal = imageio.imread(sal)
+            sal = torch.tensor(sal, dtype=torch.float32)
+            sal = (sal/ torch.max(sal))
+            raw_sal.append(sal)
+        sal = torch.stack(raw_sal)
 
         return torch.tensor(padding_image, dtype=torch.float32), label, torch.tensor(padding_mask, dtype=torch.float32), sal, self.datapaths[idx]
         ## chỉ cần quan tâm tới đầu ra:
