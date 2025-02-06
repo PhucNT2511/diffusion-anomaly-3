@@ -57,14 +57,14 @@ args.num_workers = 4
 
 train_dataset = BRATSDataset(
                 mode="train", 
-                fold=1, 
+                fold=args.fold, 
                 transforms=None,
                 only_positive = False,
                 only_negative = False)
 
 val_dataset = BRATSDataset(
                 mode="test", 
-                fold=1, 
+                fold=args.fold,
                 transforms=None,
                 only_positive = False,
                 only_negative = False)
