@@ -149,8 +149,8 @@ def main():
 
     #################################################################################
     logger.log(f"creating optimizer...")
-    opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
-    '''
+    #opt = AdamW(mp_trainer.master_params, lr=args.lr, weight_decay=args.weight_decay)
+    
     opt = SGD(mp_trainer.master_params, momentum=0.9, lr=args.lr, weight_decay=5e-4, nesterov= True)
 
     total_steps = args.iterations
@@ -164,7 +164,7 @@ def main():
         final_div_factor=1e4,
         anneal_strategy='cos'
     )
-    '''
+    
     #####################################################################################
     
     if args.resume_checkpoint:
@@ -285,10 +285,11 @@ def main():
             "samples",
             (step + resume_step + 1) * args.batch_size * dist.get_world_size(),
         )
-    
+
+        '''
         if args.anneal_lr:
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
-            #scheduler.step()
+        '''
         # print('step', step + resume_step)
         
         losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
@@ -296,6 +297,9 @@ def main():
         acc_epoch += losses['train_acc@1'].sum()
 
         mp_trainer.optimize(opt)
+
+        if args.anneal_lr:
+            scheduler.step()
         
         # calculate val_accuracy & loss in all of validation dataset - sau 1000 steps sẽ in ra kết quả evaluate
         if val_data is not None and not step % args.eval_interval:
@@ -385,8 +389,8 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=200001,
-        lr=3e-4, ########## 1e-3-SGD / 3e-4 ADAMW - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
-        weight_decay=0.0, ######### 5e-4-SGD; 0.0 ADAMW 
+        lr=1e-3, ########## 1e-3-SGD / 3e-4 ADAMW - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        weight_decay=5e-4, ######### 5e-4-SGD; 0.0 ADAMW 
         anneal_lr=True,
         batch_size=32,
         microbatch=-1,
