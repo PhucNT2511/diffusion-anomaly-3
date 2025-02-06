@@ -1,6 +1,8 @@
+################ Đã sửa xong
+
 import sys
 # put your path here
-sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+#sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse']) ###### Chỉ là thiết lập môi trường thôi
 from utils.arg_parsing import parse_args
 import os
 import pprint
@@ -14,7 +16,6 @@ dt_string = main_start.strftime("%d/%m/%Y %H:%M:%S")
 print("Start main() date and time =", dt_string)
 
 args = parse_args()
-os.environ["CUDA_VISIBLE_DEVICES"] = '5,6'
 
 from utils.storage import (
     build_experiment_folder,
@@ -52,50 +53,32 @@ device = (
 )
 
 train_dataset = BRATSDataset(
-    dataset_root_folder_filepath='data/brats2021_slices/images',
-    df_path='data/brats2021_train.csv',
-    transform=None,
-    only_positive=False,
-    only_negative=False,
-    only_flair=False)
+                mode="train", 
+                fold=1, 
+                transforms=None,
+                only_positive = False,
+                only_negative = False)
 
 val_dataset = BRATSDataset(
-    dataset_root_folder_filepath='data/brats2021_slices/images',
-    df_path='data/brats2021_val.csv',
-    transform=None,
-    only_positive=False,
-    only_negative=False,
-    only_flair=False)
-
-test_dataset = BRATSDataset(
-    dataset_root_folder_filepath='data/brats2021_slices/images',
-    df_path='data/brats2021_test.csv',
-    transform=None,
-    only_positive=False,
-    only_negative=False,
-    only_flair=False)
-
+                mode="test", 
+                fold=1, 
+                transforms=None,
+                only_positive = False,
+                only_negative = False)
 
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=args.eval_batch_size, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=args.eval_batch_size, shuffle=False)
-
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)  # set seed
 random.seed(args.seed)
 
-
 device = (
-    torch.cuda.current_device()
-    if torch.cuda.is_available() and args.num_gpus_to_use > 0
+    torch.cuda()
+    if torch.cuda.is_available()
     else "cpu"
 )
-print(
-    "Device: {} num_gpus: {}  torch.cuda.is_available() {}".format(
-        device, args.num_gpus_to_use, torch.cuda.is_available()
-    )
-)
+
 args.device = device
 
 if torch.cuda.is_available():
@@ -106,7 +89,7 @@ print("-----------------------------------")
 pprint.pprint(args, indent=4)
 print("-----------------------------------")
 
-
+########################################################### classifier here is resnet50 for classification
 model = torchvision.models.resnet50(progress=False)
 model.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3,bias=False)
 model.fc = nn.Linear(2048, 2)
@@ -223,7 +206,6 @@ def save_task_stats(model, task_dict, metric_tracker, logits_dict, loss_dict=Non
 
 
 def train_iter(metric_tracker, model, x,y, ids, iteration, epoch, set_name):
-
 
     inputs = x.to(device)
     targets = torch.tensor(y, dtype=torch.long).to(device)

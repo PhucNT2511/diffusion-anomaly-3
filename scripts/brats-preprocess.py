@@ -1,3 +1,4 @@
+##############3 Mình ko cần tới cái file này vì mình đã padding rất oke rồi
 import os
 import nibabel
 import torch
@@ -6,16 +7,16 @@ from torchvision import datasets, models, transforms
 import imageio
 import skimage
 
+########### Ảnh 240x240 --> 256x256 (2*8 padding in each dimension)
 transform = transforms.Compose(
     [
-        transforms.Pad(8)
-
+        transforms.Pad(8) 
     ]
 )
 
 directory = 'data/brats2021'
 
-
+############# 4 layers + groundtruth mask (seg)
 seqtypes = ['flair','t1', 't1ce', 't2', 'seg']
 seqtypes_set = set(seqtypes)
 database = []
@@ -32,7 +33,8 @@ for root, dirs, files in os.walk(directory):
             f'datapoint {f} is incomplete, keys are {datapoint.keys()}'
         database.append(datapoint)
 
-def load_all_levels(filedict):
+############# load dữ liệu cả 4 layers + seg 
+def load_all_levels(filedict): 
     raw_image = []
     for level in  ['flair','t1','t2','t1ce']:
         nib_img = nibabel.load(filedict[level])
@@ -91,3 +93,5 @@ for i in range(len(database)):
         imageio.imwrite(f'data/brats2021_slices/segs/{number}_{slice_index+25}_seg.png', skimage.img_as_ubyte(seg[slice_index, :, :]))
 
 
+################ cảm giác chỉ là chuẩn hóa ảnh và sau đó lưu vào các file với tên tuong ứng --> xem xét bỏ qua
+################# KO CẦN DÙNG FILE NÀY

@@ -1,3 +1,5 @@
+############# Kiến trúc VAE - ko cần sửa
+
 from pl_bolts.models.autoencoders import AE
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.cli import LightningCLI
@@ -16,8 +18,7 @@ from pl_bolts.models.autoencoders.components import (
 )
 
 
-
-
+##Nội suy
 class Interpolate(nn.Module):
     """nn.Module wrapper for F.interpolate"""
 
@@ -71,7 +72,7 @@ def resize_size_conv1x1(in_planes, out_planes, size = 1):
     else:
         return nn.Sequential(Interpolate(size=size), conv1x1(in_planes, out_planes))
 
-
+##Encoder VAE
 class EncoderBlock(nn.Module):
     """
     ResNet block, copied from
@@ -150,7 +151,7 @@ class EncoderBottleneck(nn.Module):
         out = self.relu(out)
         return out
 
-
+##Decoder VAE
 class DecoderBlock(nn.Module):
     """
     ResNet block, but convs replaced with resize convs, and channel increase is in
@@ -262,7 +263,8 @@ class DecoderBottleneck(nn.Module):
         out = self.relu(out)
         return out
 
-
+## Resnets here just are networks to construct/build/establish AE
+## all the blocks (encoder, decoder before) are the main components of resnet decoder/encoder
 class ResNetEncoder(nn.Module):
 
     def __init__(self, block, layers, first_conv=False, maxpool1=False):
@@ -395,6 +397,7 @@ class ResNetDecoder(nn.Module):
 
         x = self.conv1(x)
         return x
+    
 class ResNetEncoder_1024(nn.Module):
 
     def __init__(self, block, layers, first_conv=False, maxpool1=False):
@@ -691,6 +694,13 @@ def resnet18_encoder_2048(first_conv, maxpool1):
 
 def resnet18_decoder_2048(latent_dim, input_height, first_conv, maxpool1):
     return ResNetDecoder_2048(DecoderBlock, [2, 2, 2, 2, 2, 2], latent_dim, input_height, first_conv, maxpool1)
+
+################ Autoencoder AE
+################ And also, we have VAE and some varients 
+## VAE chẳng qua là latent space là distribution, thay vì point như AE thôi
+## Thật ra, AE khấ giống Unet, xong --> nhược điểm lớn của nó là bottleneck, Unet ko có bottle neck thực sự,
+## do trong unet có skip connection; đồng thời unet cũng là 1TH đặc biệt tương tự AE khi dùng các lớp conv vad deconv cho ảnh
+
 
 class AE(pl.LightningModule):
     """

@@ -1,6 +1,6 @@
 import sys
-# put your path here
-sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+# put your path here - OK
+#sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
 from utils.arg_parsing import parse_args
 import pprint
 import torch.nn as nn
@@ -33,25 +33,16 @@ dt_string = main_start.strftime("%d/%m/%Y %H:%M:%S")
 print("Start main() date and time =", dt_string)
 args = parse_args()
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '5,6'
-
-
-
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)  # set seed
 random.seed(args.seed)
 
-
 device = (
     torch.cuda.current_device()
-    if torch.cuda.is_available() and args.num_gpus_to_use > 0
+    if torch.cuda.is_available()
     else "cpu"
 )
-print(
-    "Device: {} num_gpus: {}  torch.cuda.is_available() {}".format(
-        device, args.num_gpus_to_use, torch.cuda.is_available()
-    )
-)
+
 args.device = device
 
 height = 256
@@ -59,35 +50,26 @@ width = 256
 channels = 4
 args.num_workers = 4
 
+#'data/brats2021_slices/images' --> file chứa các slide ảnh
+# df_path --> file phân chia ảnh theo meta data
+
 train_dataset = BRATSDataset(
-    dataset_root_folder_filepath='data/brats2021_slices/images',
-    df_path='data/brats2021_train.csv',
-    transform=None,
-    only_positive=False,
-    only_negative=True,
-    only_flair=False)
+                mode="train", 
+                fold=1, 
+                transforms=None,
+                only_positive = False,
+                only_negative = False)
 
 val_dataset = BRATSDataset(
-    dataset_root_folder_filepath='data/brats2021_slices/images',
-    df_path='data/brats2021_val.csv',
-    transform=None,
-    only_positive=False,
-    only_negative=True,
-    only_flair=False)
-
-test_dataset = BRATSDataset(
-    dataset_root_folder_filepath='data/brats2021_slices/images',
-    df_path='data/brats2021_test.csv',
-    transform=None,
-    only_positive=False,
-    only_negative=True,
-    only_flair=False)
+                mode="test", 
+                fold=1, 
+                transforms=None,
+                only_positive = False,
+                only_negative = False)
 
 
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=args.eval_batch_size, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=args.eval_batch_size, shuffle=False)
-
 
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(args.seed)

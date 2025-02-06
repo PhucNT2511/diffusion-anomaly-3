@@ -1,6 +1,6 @@
 import sys
 # put your path here
-sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+#sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
 import matplotlib.pyplot as plt
 import argparse
 import cv2
@@ -25,8 +25,6 @@ import torch.nn as nn
 from torchvision import utils
 from torch.utils.data import DataLoader
 import nibabel as nib
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6"
 
 def load_niftii_file(file_path):
     image = nib.load(file_path)
@@ -85,37 +83,14 @@ def main():
 
     model.eval()
 
-    train_dataset = BRATSDatasetSaliency(
-            dataset_root_folder_filepath = 'data/brats2021_slices/images',
-            saliency_root_folder_filepath= 'saliency_maps',
-            df_path='data/brats2021_train.csv',
-            transform = None,
-            only_positive = True,
-            only_negative = False,
-            only_flair=False)
-
     val_dataset = BRATSDatasetSaliency(
-            dataset_root_folder_filepath = 'data/brats2021_slices/images',
             saliency_root_folder_filepath= 'saliency_maps',
-            df_path='data/brats2021_val.csv',
+            fold=args.fold,
             transform = None,
             only_positive = True,
-            only_negative = False,
-            only_flair=False)
+            only_negative = False)
 
-    test_dataset = BRATSDatasetSaliency(
-            dataset_root_folder_filepath = 'data/brats2021_slices/images',
-            saliency_root_folder_filepath= 'saliency_maps',
-            df_path='data/brats2021_test.csv',
-            transform = None,
-            only_positive = True,
-            only_negative = False,
-            only_flair=False)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-
-
 
     logger.log("sampling...")
     all_images = []
@@ -133,6 +108,8 @@ def main():
             )
             sal = clean(sal, threshold=threshold, independent = independent)
             mask = sal.to(torch.float).to(device)
+
+
             if kernel>0:
                 for j in range(mask.shape[0]):
                     for each_slice in range(mask.shape[1]):
@@ -227,7 +204,7 @@ def main():
                 plt.imshow((orig_img[j, 0, :, :]).detach().cpu().numpy(), cmap=plt.cm.bone)
                 plt.imshow(erode[j, 0, :, :], interpolation='none', alpha=0.5, cmap="Reds")
 
-
+                
             out_path_img_anomaly_overlayed = os.path.join(logger.get_dir(),
                                                     f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_ranget_{range_t}_kernelsize_{kernel}_anomaly_overlayed.png")
 
@@ -244,8 +221,8 @@ def create_argparser():
         num_samples=10000,
         batch_size=16,
         use_ddim=True,
-        model_path="",
-        classifier_path="",
+        model_path="", ############# các path này phải lấy kỹ, theo fold
+        classifier_path="", ################ path này lấy kỹ, theo fold
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())

@@ -1,10 +1,11 @@
 """
+OK
 Train a diffusion model on images.
 """
 import sys
 
 # put your path here
-sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+# sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
 
 import argparse
 
@@ -28,8 +29,6 @@ from torch.utils.data import DataLoader
 def load_data(loader):
     while True:
         yield from loader
-
-os.environ["CUDA_VISIBLE_DEVICES"] = '5,6'
 
 def main():
     args = create_argparser().parse_args()
@@ -64,17 +63,16 @@ def main():
 
     logger.log("creating data loader...")
 
-    train_set = BRATSDataset(
-        dataset_root_folder_filepath='data/brats2021_slices/images',
-        df_path='data/brats2021_train.csv',
-        transform=None,
-        only_positive=False,
-        only_negative=True,
-        only_flair=False)
+    train_dataset = BRATSDataset(
+                    mode="train", 
+                    fold=args.fold, 
+                    transforms=None,
+                    only_positive = False,
+                    only_negative = True)
 
 
     loader = DataLoader(
-        train_set, batch_size=args.batch_size, shuffle=True, num_workers=0, drop_last=True
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, drop_last=True
     )
 
 
@@ -104,7 +102,7 @@ def main():
 
 def create_argparser():
     defaults = dict(
-        gpus=2,
+        gpus=1,
         experiment_name='test',
         schedule_sampler="uniform",
         lr=1e-4,
@@ -118,6 +116,7 @@ def create_argparser():
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        fold = 1,
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
