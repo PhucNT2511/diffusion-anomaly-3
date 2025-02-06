@@ -128,7 +128,7 @@ def compute_counterfactual(z, z0, targets, criterion_class = nn.CrossEntropyLoss
         # print(i)
         z = to_tensor_grad(z, requires_grad=True)
         z_0 = to_tensor_grad(z0)
-        logits = model(ae.module.decoder(z))
+        logits = model(ae.decoder(z))
         saliency_loss = criterion_class(input=logits, target=targets)
         distance = criterion_norm(z, z_0)
         # print('loss', saliency_loss, 'distance',distance, 'prob', m(logits)[:, 1])
@@ -142,7 +142,7 @@ def compute_counterfactual(z, z0, targets, criterion_class = nn.CrossEntropyLoss
     return to_tensor_grad(z)
 
 def compute_saliency(z, im2):
-    shifted_image_1 = ae.module.decoder(z)
+    shifted_image_1 = ae.decoder(z)
     shifted_image_1 = shifted_image_1.detach().cpu()
     dimage = torch.abs(im2.cpu()- shifted_image_1)
 
@@ -163,9 +163,9 @@ for loader in [train_loader, val_loader]:
             inputs = inputs.to(device)
 
             im1_enc = inputs
-            im2 = ae.module.decoder(ae.module.encoder(im1_enc)).detach().to('cpu')
+            im2 = ae.decoder(ae.encoder(im1_enc)).detach().to('cpu')
 
-            z = to_numpy(ae.module.encoder(im1_enc))
+            z = to_numpy(ae.encoder(im1_enc))
             z0 = z
 
             # positive counterfactual
