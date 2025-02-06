@@ -3,6 +3,8 @@
 import sys
 # put your path here
 #sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+sys.path.append("..")
+sys.path.append(".")
 import numpy as np
 from utils.arg_parsing import parse_args
 from datetime import datetime

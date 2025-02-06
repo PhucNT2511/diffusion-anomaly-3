@@ -1,6 +1,8 @@
 import sys
 # put your path here - OK
 #sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+sys.path.append("..")
+sys.path.append(".")
 from utils.arg_parsing import parse_args
 import pprint
 import torch.nn as nn

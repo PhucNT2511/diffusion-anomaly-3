@@ -1,6 +1,8 @@
 import sys
 # put your path here
 #sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+sys.path.append("..")
+sys.path.append(".")
 import matplotlib.pyplot as plt
 import argparse
 import cv2
@@ -204,7 +206,7 @@ def main():
                 plt.imshow((orig_img[j, 0, :, :]).detach().cpu().numpy(), cmap=plt.cm.bone)
                 plt.imshow(erode[j, 0, :, :], interpolation='none', alpha=0.5, cmap="Reds")
 
-                
+
             out_path_img_anomaly_overlayed = os.path.join(logger.get_dir(),
                                                     f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_ranget_{range_t}_kernelsize_{kernel}_anomaly_overlayed.png")
 

@@ -6,6 +6,8 @@ import sys
 
 # put your path here
 # sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse'])
+sys.path.append("..")
+sys.path.append(".")
 
 import argparse
 

@@ -3,6 +3,8 @@
 import sys
 # put your path here
 #sys.path.extend(['/disk/scratch2/alessandro/new_code/Dif-fuse']) ###### Chỉ là thiết lập môi trường thôi
+sys.path.append("..")
+sys.path.append(".")
 from utils.arg_parsing import parse_args
 import os
 import pprint
