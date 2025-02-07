@@ -395,7 +395,7 @@ def create_argparser():
         batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="diffusion-anomaly-3/checkpoint/classifier/model200000.pt",
+        resume_checkpoint="checkpoint/classifier/model200000.pt",
         log_interval=10,
         eval_interval=1000, # sau 1000 steps sẽ in ra kết quả evaluate
         save_interval=10000, # sau 10000 steps sẽ lưu lại một lần
