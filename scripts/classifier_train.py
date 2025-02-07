@@ -389,7 +389,7 @@ def create_argparser():
         val_data_dir="",
         noised=True,
         iterations=400001,
-        lr=3e-5, ########## 1e-3-SGD / 3e-4 ADAMW - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
+        lr=3e-4, ########## 1e-3-SGD / 3e-4 ADAMW - Tăng lr để nhảy xuống cực trị nhanh ở thời điểm ban đầu, giảm dần ở steps sau
         weight_decay=0.0, ######### 5e-4-SGD; 0.0 ADAMW 
         anneal_lr=True,
         batch_size=32,
