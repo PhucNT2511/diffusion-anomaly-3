@@ -83,7 +83,6 @@ if args.num_gpus_to_use > 1:
 baseline_filepath, _, _ = build_experiment_folder(
     experiment_name='baseline_classifier',
     log_path=args.logs_path + "/" + "epochs_" + str(args.max_epochs),
-
 )
 _ = restore_model(restore_fields={"model": model}, path=baseline_filepath, device=device, best=True)
 
@@ -187,7 +186,7 @@ for loader in [train_loader, val_loader]:
             ############## Dimage tìm ra có 4 chiều
             for j in range(inputs.shape[0]):
                 for i, level in enumerate(['flair', 't1', 't2', 't1ce']):
-                    path = os.path.join(saliency_root, name[j][39:-4] + level + '.png')
+                    path = os.path.join(saliency_root, name[j][40:-4] + level + '.png')
                     imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,i, :, :]))
 
 ########## 

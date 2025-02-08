@@ -142,7 +142,7 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
 
         raw_sal = []
         for level in ['flair', 't1', 't2', 't1ce']:
-            sal = os.path.join(self.saliency_root_folder_filepath, self.datapaths[idx][39:-4] + level + '.png')
+            sal = os.path.join(self.saliency_root_folder_filepath, self.datapaths[idx][40:-4] + level + '.png')
             sal = imageio.imread(sal)
             sal = torch.tensor(sal, dtype=torch.float32)
             sal = (sal/ torch.max(sal))
