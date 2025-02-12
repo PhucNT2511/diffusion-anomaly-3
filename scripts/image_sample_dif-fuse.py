@@ -79,9 +79,21 @@ def main():
     if args.gpus > 1:
         model = nn.DataParallel(model)
 
-    model.load_state_dict(
-        dist_util.load_state_dict(args.model_path)
-    )
+    state_dict = dist_util.load_state_dict(args.model_path)
+
+    # Loại bỏ tiền tố 'module.' nếu có
+    new_state_dict = {}
+    for key, value in state_dict.items():
+        # Nếu key bắt đầu bằng 'module.', loại bỏ tiền tố đó
+        if key.startswith('module.'):
+            new_key = key[7:]  # Loại bỏ 'module.'
+        else:
+            new_key = key
+        new_state_dict[new_key] = value
+
+    # Tải state_dict vào mô hình
+    model.load_state_dict(new_state_dict)
+    
 
     model.eval()
 
