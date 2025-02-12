@@ -225,6 +225,7 @@ def create_argparser():
         use_ddim=True,
         model_path="", ############# các path này phải lấy kỹ, theo fold
         classifier_path="", ################ path này lấy kỹ, theo fold
+        fold = 1,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())
