@@ -137,8 +137,8 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         padding_mask[8:-8, 8:-8] = mask
         label = 1 if np.sum(mask) > 0 else 0
 
-        if self.transforms:
-            padding_image = self.transforms(torch.Tensor(padding_image))
+        if self.transform:
+            padding_image = self.transform(torch.Tensor(padding_image))
 
         raw_sal = []
         for level in ['flair', 't1', 't2', 't1ce']:
