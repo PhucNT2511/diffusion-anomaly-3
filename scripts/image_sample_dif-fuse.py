@@ -80,7 +80,7 @@ def main():
         model = nn.DataParallel(model)
 
     model.load_state_dict(
-        dist_util.load_state_dict(args.model_path, map_location=dist_util.dev())
+        dist_util.load_state_dict(args.model_path)
     )
 
     model.eval()
@@ -219,7 +219,7 @@ def create_argparser():
     defaults = dict(
         clip_denoised=True,
         experiment_name='dif-fuse_sampling',
-        gpus=2,
+        gpus=1,
         num_samples=10000,
         batch_size=16,
         use_ddim=True,
