@@ -189,7 +189,7 @@ def main():
             fig = plt.figure(figsize=(11,11))
             for j in range(args.batch_size):
                 plt.subplot(4, 4, j + 1)
-                plt.grid(b=None)
+                plt.grid(visible=False)
                 plt.axis('off')
                 plt.imshow(erode[j,:,:,:].squeeze(0), interpolation='none', cmap="Reds")
             out_path_img_anomaly = os.path.join(logger.get_dir(),
@@ -201,7 +201,7 @@ def main():
             fig = plt.figure(figsize=(11, 11))
             for j in range(args.batch_size):
                 plt.subplot(4, 4, j + 1)
-                plt.grid(b=None)
+                plt.grid(visible=False)
                 plt.axis('off')
                 plt.imshow((orig_img[j, 0, :, :]).detach().cpu().numpy(), cmap=plt.cm.bone)
                 plt.imshow(erode[j, 0, :, :], interpolation='none', alpha=0.5, cmap="Reds")
