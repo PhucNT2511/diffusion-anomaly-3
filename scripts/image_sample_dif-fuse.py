@@ -87,7 +87,7 @@ def main():
 
     val_dataset = BRATSDatasetSaliency(
             saliency_root_folder_filepath= '/kaggle/input/saliency-maps-fold-1/diffusion-anomaly-3/saliency_maps',
-            fold=args.fold,
+            fold=1,
             transform = None,
             only_positive = True,
             only_negative = False)
@@ -225,7 +225,6 @@ def create_argparser():
         use_ddim=True,
         model_path="", ############# các path này phải lấy kỹ, theo fold
         classifier_path="", ################ path này lấy kỹ, theo fold
-        fold = 1,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())
