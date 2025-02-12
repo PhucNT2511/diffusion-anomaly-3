@@ -86,7 +86,7 @@ def main():
     model.eval()
 
     val_dataset = BRATSDatasetSaliency(
-            saliency_root_folder_filepath= 'saliency_maps',
+            saliency_root_folder_filepath= '/kaggle/input/saliency-maps/diffusion-anomaly-3/saliency_maps',
             fold=args.fold,
             transform = None,
             only_positive = True,
