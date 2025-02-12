@@ -14,9 +14,7 @@ import torch.distributed as dist
 # Change this to reflect your cluster layout.
 # The GPU for a given rank is (rank % GPUS_PER_NODE).
 GPUS_PER_NODE = 1
-
 SETUP_RETRY_COUNT = 3
-
 
 def setup_dist():
     """
@@ -40,7 +38,6 @@ def setup_dist():
     os.environ["MASTER_PORT"] = str(port)
     dist.init_process_group(backend=backend, init_method="env://")
 
-
 def dev():
     """
     Get the device to use for torch.distributed.
@@ -62,7 +59,6 @@ def load_state_dict(path, **kwargs):
     data = MPI.COMM_WORLD.bcast(data)
     return th.load(io.BytesIO(data), **kwargs)
 
-
 def sync_params(params):
     """
     Synchronize a sequence of Tensors across ranks from rank 0.
@@ -70,7 +66,6 @@ def sync_params(params):
     for p in params:
         with th.no_grad():
             dist.broadcast(p, 0)
-
 
 def _find_free_port():
     try:
