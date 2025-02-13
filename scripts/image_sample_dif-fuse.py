@@ -192,8 +192,9 @@ def main():
                 er = cv2.morphologyEx(a, cv2.MORPH_CLOSE, kernel5)
                 erode[j, 0, :, :] = er
                 out_path_img_anomaly = os.path.join(logger.get_dir(),
-                                                    f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids}_anomaly_map.npy")
-                np.save(out_path_img_anomaly, np.array(erode[j, 0, :, :]))
+                                                    f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids[j][40:-4]}_anomaly_map.npy")
+                with open(out_path_img_anomaly, 'wb') as f:
+                    np.save(f, np.array(erode[j, 0, :, :]))
                 print(f'Process {max(i-1,0)*args.batch_size+j+1} images completely!')
             '''
             fig = plt.figure(figsize=(11,11))
