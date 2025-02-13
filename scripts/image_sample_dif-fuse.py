@@ -193,7 +193,7 @@ def main():
                 erode[j, 0, :, :] = er
                 out_path_img_anomaly = os.path.join(logger.get_dir(),
                                                     f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids}_anomaly_map.png")
-                cv2.imwrite(out_path_img_anomaly, erode[j, 0, :, :])
+                np.save(out_path_img_anomaly,np.array(erode[j, 0, :, :]))
                 print(f'Process {max(i-1,0)*args.batch_size+j+1} images completely!')
             '''
             fig = plt.figure(figsize=(11,11))
@@ -238,8 +238,8 @@ def create_argparser():
         model_path="", ############# các path này phải lấy kỹ, theo fold
         classifier_path="", ################ path này lấy kỹ, theo fold
         fold = 1,
-        start_point = 800,
-        end_point = 1600,
+        start_point = 0,
+        end_point = 500,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())
