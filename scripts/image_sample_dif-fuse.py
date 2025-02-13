@@ -238,8 +238,8 @@ def create_argparser():
         model_path="", ############# các path này phải lấy kỹ, theo fold
         classifier_path="", ################ path này lấy kỹ, theo fold
         fold = 1,
-        start_point = 0,
-        end_point = 800,
+        start_point = 800,
+        end_point = 1600,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())
