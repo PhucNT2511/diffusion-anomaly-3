@@ -87,7 +87,7 @@ def main():
 
     val_dataset = BRATSDatasetSaliency(
             saliency_root_folder_filepath= '/kaggle/input/saliency-maps-fold-1/diffusion-anomaly-3/saliency_maps',
-            fold=1,
+            fold=args.fold,
             transform = None,
             only_positive = True,
             only_negative = False)
@@ -104,8 +104,11 @@ def main():
     independent = 0
 
     for i, (image,_,_,sal, ids) in enumerate(val_loader):
+            if i*args.batch_size < args.start_point:
+                continue
+            elif i*args.batch_size >= args.end_point:
+                break
             sample_fn = (
-
                 diffusion.diffuse_loop_forward_backward
             )
             sal = clean(sal, threshold=threshold, independent = independent)
@@ -126,9 +129,10 @@ def main():
             mask = mask.to(device)
 
             image = image.to(torch.float).to(device)
+            ###################### Cái save ở ddaaay chỉ là load ra thôi, chứ chưa có tác dụng gì
             for k, level in enumerate(['flair', 't1', 't2', 't1ce']):
                 utils.save_image((image[:, k, :, :]).unsqueeze(1),os.path.join(logger.get_dir(), f'batch{i}_threshold_{threshold}_{level}_image.png'), nrow=4)
-
+            ############ reconstructed, sampled, original
             rec, sample, orig= sample_fn(
                 model = model,
                 mask = mask,
@@ -158,7 +162,8 @@ def main():
                 os.makedirs(out_path)
 
             delta_rec = torch.abs(sample_img - rec_img)
-
+            ##################### Lưu ảnh ban đầu và ảnh tạo ra theo từng batch --> nên lưu độc lập
+            '''            
             for k, level in enumerate(['flair', 't1', 't2', 't1ce']):
                 utils.save_image((orig_img[:, k, :, :]).unsqueeze(1), os.path.join(logger.get_dir(),
                                                                                    f'images/batch{i}_noiselevel_{noise_level}_{level}_orig.png'),
@@ -166,7 +171,7 @@ def main():
                 utils.save_image((sample_img[:, k, :, :]).unsqueeze(1), os.path.join(logger.get_dir(),
                                                                                      f'images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{level}_final.png'),
                                  nrow=4)
-
+            '''
             delta_recflair = ((delta_rec[:, 0, :, :]).unsqueeze(1)).cpu().detach()
             # delta_flair = ((delta[:, 0, :, :]).unsqueeze(1)).cpu().detach()
 
@@ -186,17 +191,23 @@ def main():
                 a = cv2.morphologyEx(a, cv2.MORPH_OPEN, kernel5)
                 er = cv2.morphologyEx(a, cv2.MORPH_CLOSE, kernel5)
                 erode[j, 0, :, :] = er
+                out_path_img_anomaly = os.path.join(logger.get_dir(),
+                                                    f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids}_anomaly_map.png")
+                cv2.imwrite(out_path_img_anomaly, erode[j, 0, :, :])
+                print(f'Process {max(i-1,0)*args.batch_size+j+1} images completely!')
+            '''
             fig = plt.figure(figsize=(11,11))
             for j in range(args.batch_size):
                 plt.subplot(4, 4, j + 1)
                 plt.grid(visible=False)
                 plt.axis('off')
                 plt.imshow(erode[j,:,:,:].squeeze(0), interpolation='none', cmap="Reds")
+            ################## Lưu anomaly maps cho cả batch
             out_path_img_anomaly = os.path.join(logger.get_dir(),
                                                     f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_anomaly_map.png")
             plt.savefig(out_path_img_anomaly)
             plt.close(fig)
-
+            
 
             fig = plt.figure(figsize=(11, 11))
             for j in range(args.batch_size):
@@ -206,12 +217,13 @@ def main():
                 plt.imshow((orig_img[j, 0, :, :]).detach().cpu().numpy(), cmap=plt.cm.bone)
                 plt.imshow(erode[j, 0, :, :], interpolation='none', alpha=0.5, cmap="Reds")
 
-
+            ######################## Lưu anomaly map đè lên original image
             out_path_img_anomaly_overlayed = os.path.join(logger.get_dir(),
                                                     f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_ranget_{range_t}_kernelsize_{kernel}_anomaly_overlayed.png")
 
             plt.savefig(out_path_img_anomaly_overlayed)
             plt.close(fig)
+            '''
 
 
 
@@ -225,6 +237,9 @@ def create_argparser():
         use_ddim=True,
         model_path="", ############# các path này phải lấy kỹ, theo fold
         classifier_path="", ################ path này lấy kỹ, theo fold
+        fold = 1,
+        start_point = 0,
+        end_point = 800,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())
