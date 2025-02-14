@@ -145,57 +145,16 @@ def main():
                 range_t =range_t
             )
 
-            rec_img = rec.to(torch.float)
+            
             sample_img = sample.to(torch.float)
-            orig_img = orig.to(torch.float)
-
-            sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-            sample = sample.permute(0, 2, 3, 1)
-            sample = sample.contiguous()
-
-            gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
-            dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
-            all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
-
-            out_path = os.path.join(logger.get_dir(), 'images')
-            if not os.path.exists(out_path):
-                os.makedirs(out_path)
-
-            delta_rec = torch.abs(sample_img - rec_img)
-            ##################### Lưu ảnh ban đầu và ảnh tạo ra theo từng batch --> nên lưu độc lập
-            '''            
-            for k, level in enumerate(['flair', 't1', 't2', 't1ce']):
-                utils.save_image((orig_img[:, k, :, :]).unsqueeze(1), os.path.join(logger.get_dir(),
-                                                                                   f'images/batch{i}_noiselevel_{noise_level}_{level}_orig.png'),
-                                 nrow=4)
-                utils.save_image((sample_img[:, k, :, :]).unsqueeze(1), os.path.join(logger.get_dir(),
-                                                                                     f'images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{level}_final.png'),
-                                 nrow=4)
-            '''
-            delta_recflair = ((delta_rec[:, 0, :, :]).unsqueeze(1)).cpu().detach()
-            # delta_flair = ((delta[:, 0, :, :]).unsqueeze(1)).cpu().detach()
-
-
-
-            # post-processing to get anomaly map
-
-            delta_recflair = (delta_recflair * (
-                        1.0 / torch.amax(delta_recflair, dim=(-3, -2, -1), keepdim=True))).cpu().detach()
-            delta_recflair = (delta_recflair * 255)
-            delta_recflair = np.array(delta_recflair, dtype=np.uint8)
-
-            erode = np.zeros((args.batch_size, 1, 256, 256), np.uint8)
-            for j in range(delta_recflair.shape[0]):
-                a = cv2.erode(delta_recflair[j, 0, :, :], kernel5)
-                # a = delta_recflair[j, 0, :, :]
-                a = cv2.morphologyEx(a, cv2.MORPH_OPEN, kernel5)
-                er = cv2.morphologyEx(a, cv2.MORPH_CLOSE, kernel5)
-                erode[j, 0, :, :] = er
-                out_path_img_anomaly = os.path.join(logger.get_dir(),
-                                                    f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids[j][40:-4]}_anomaly_map.npy")
-                with open(out_path_img_anomaly, 'wb') as f:
-                    np.save(f, np.array(erode[j, 0, :, :]))
+    
+            for j in range(sample_img.shape[0]):
+                out_path_img_sample = os.path.join(logger.get_dir(),
+                                                    f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids[j][40:-4]}_sample.npy")
+                with open(out_path_img_sample, 'wb') as f:
+                    np.save(f, np.array(sample_img[j, :, :, :]))
                 print(f'Process {max(i-1,0)*args.batch_size+j+1} images completely!')
+            
             '''
             fig = plt.figure(figsize=(11,11))
             for j in range(args.batch_size):
@@ -239,8 +198,8 @@ def create_argparser():
         model_path="", ############# các path này phải lấy kỹ, theo fold
         classifier_path="", ################ path này lấy kỹ, theo fold
         fold = 1,
-        start_point = 2000,
-        end_point = 2600,
+        start_point = 0,
+        end_point = 500,
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(classifier_defaults())
