@@ -146,17 +146,17 @@ def main():
             )
 
             
-            sample_img = sample.to(torch.float)
+            #ample_img = sample.to(torch.float)
 
             out_path = os.path.join(logger.get_dir(), 'images')
             if not os.path.exists(out_path):
                 os.makedirs(out_path)
 
-            for j in range(sample_img.shape[0]):
+            for j in range(sample.shape[0]):
                 out_path_img_sample = os.path.join(logger.get_dir(),
                                                     f"images/batch{i}_noiselevel_{noise_level}_threshold_{threshold}_kernelsize_{kernel}_ind_{independent}_{ids[j][40:-4]}_sample.npy")
                 with open(out_path_img_sample, 'wb') as f:
-                    np.save(f, np.array(sample_img[j, :, :, :]))
+                    np.save(f, np.array((sample[j, :, :, :]).cpu()))
                 print(f'Process {max(i-1,0)*args.batch_size+j+1} images completely!')
             '''
             fig = plt.figure(figsize=(11,11))
