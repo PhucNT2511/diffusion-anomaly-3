@@ -430,7 +430,7 @@ def split_microbatches(microbatch, *args):
 
 def create_argparser():
     defaults = dict(
-        unet_path = f"/kaggle/input/brats20-models-fold{FOLD}/model100000.pt",
+        unet_path = f"/kaggle/input/brats20-models-fold2/model100000.pt",
         use_ddim = True,
         ################
         data_dir="",
