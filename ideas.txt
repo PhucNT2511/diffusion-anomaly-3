@@ -1,0 +1,6 @@
+- Train model U-net first.
+- Train classifier:
+	Loss = Cross_entropy Loss + 0.1*Ảnh phục hồi của nó theo DDIM theo class healthy.
+- Nhưng cần phải cẩn thận, vì cho dù ảnh tại bất cứ step nào, cũng cần phải làm nhiễu đến cuối cùng, từ đó mới dùng DDIM để phục hồi.
+Và thực ra thì cho dù tại thời điểm bất kỳ, khi làm nhiễu đến cuối cùng, cũng chỉ là một cái búng tay (1 bước nhảy) để ra ảnh hoàn toàn nhiễu thôi.
+Dù dùng DDIM thì cũng cần vài chục bước để phục hồi lại ảnh ban đầu. Nói chung là, khá là lâu cho việc training classifier, nhưng phải thử mới biết đk.

@@ -44,20 +44,20 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
     if args.dataset=='brats':
-      ds = BRATSDataset(args.data_dir, mode="val", test_flag=True)
-      datal = th.utils.data.DataLoader(
-        ds,
-        batch_size=args.batch_size,
-        shuffle=False)
+        ds = BRATSDataset(args.data_dir, mode="val", test_flag=True)
+        datal = th.utils.data.DataLoader(
+            ds,
+            batch_size=args.batch_size,
+            shuffle=False)
     
     elif args.dataset=='chexpert':
-     data = load_data(
-         data_dir=args.data_dir,
-         batch_size=args.batch_size,
-         image_size=args.image_size,
-         class_cond=True,
-     )
-     datal = iter(data)
+        data = load_data(
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            image_size=args.image_size,
+            class_cond=True,
+        )
+        datal = iter(data)
     model.to(dist_util.dev())
     print(args.model_path)
     model.load_state_dict(
@@ -192,8 +192,8 @@ def main():
           
         elif args.dataset=='chexpert':
 #           viz.image(visualize(sample[0, ...]), opts=dict(caption="sampled output"+str(name)))
-          diff=abs(visualize(org[0, 0,...])-visualize(sample[0,0, ...]))
-          diff=np.array(diff.cpu())
+            diff=abs(visualize(org[0, 0,...])-visualize(sample[0,0, ...]))
+            diff=np.array(diff.cpu())
 #           viz.heatmap(np.flipud(diff), opts=dict(caption="diff"))
 
 

@@ -422,7 +422,7 @@ class GaussianDiffusion:
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
-        # cfn is grad of classifier with being refined
+        # cfn is grad of classifier with being refined -- cond_fn is a function to calculate gradient of cls, but I wanna have a ddim that doesn't need func of DSlab.
         a, cfn= cond_fn(
             x, self._scale_timesteps(t).long(), **model_kwargs
         )
@@ -440,7 +440,9 @@ class GaussianDiffusion:
         channels = self.channels
         return self.p_sample_loop_known(model,(batch_size, channels, image_size, image_size), img)
 
-
+    ####################### DDPM
+    ### just to make color >.<
+    ##############3 Nhiễu được tạo ra random, không được tạo từ dữ liệu
     def p_sample_loop(
         self,
         model,
@@ -487,7 +489,8 @@ class GaussianDiffusion:
         ):
             final = sample
         return final["sample"]
-
+    
+    ######### DDPM denoising from x_t to x_{t-1}: a single step
     def p_sample(
             self,
             model,
@@ -499,7 +502,7 @@ class GaussianDiffusion:
             model_kwargs=None,
     ):
         """
-        Sample x_{t-1} from the model at the given timestep.
+        Sample x_{t-1} from the model at the given timestep t.
         :param model: the model to sample from.
         :param x: the current tensor at x_{t-1}.
         :param t: the value of t, starting at 0 for the first diffusion step.
@@ -534,7 +537,8 @@ class GaussianDiffusion:
             a=0*noise
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"], "saliency": a}
-
+    
+    ################## Có ảnh truyền vào từ tập dataset
     def p_sample_loop_known(
         self,
         model,
@@ -557,15 +561,15 @@ class GaussianDiffusion:
         b = shape[0]
 
 
-        t = th.randint(499,500, (b,), device=device).long().to(device)
+        t = th.randint(499,500, (b,), device=device).long().to(device) ######### [499,499,...,499]
 
         org=img[0].to(device)
         img=img[0].to(device)
         indices = list(range(t))[::-1]
         noise = th.randn_like(img[:, :4, ...]).to(device)
-        x_noisy = self.q_sample(x_start=img[:, :4, ...], t=t, noise=noise).to(device)
+        x_noisy = self.q_sample(x_start=img[:, :4, ...], t=t, noise=noise).to(device) #### Làm nhiễu từ bước đầu đến bước 500 (bước cuối trong DDPM)
         x_noisy = torch.cat((x_noisy, img[:, 4:, ...]), dim=1)
-        
+        ################### Nhiễu được tạo ra từ ảnh đầu vào
         
         for sample in self.p_sample_loop_progressive(
             model,
@@ -585,6 +589,7 @@ class GaussianDiffusion:
       
         return final["sample"], x_noisy, img
 
+    ############### Có 2 ảnh truyền vào
     def p_sample_loop_interpolation(
         self,
         model,
@@ -604,13 +609,13 @@ class GaussianDiffusion:
             device = next(model.parameters()).device
         assert isinstance(shape, (tuple, list))
         b = shape[0]
-        t = th.randint(299,300, (b,), device=device).long().to(device)
+        t = th.randint(299,300, (b,), device=device).long().to(device) ############## Làm nhiễu tại t = 300
         img1=torch.tensor(img1).to(device)
         img2 = torch.tensor(img2).to(device)
         noise = th.randn_like(img1).to(device)
         x_noisy1 = self.q_sample(x_start=img1, t=t, noise=noise).to(device)
         x_noisy2 = self.q_sample(x_start=img2, t=t, noise=noise).to(device)
-        interpol=lambdaint*x_noisy1+(1-lambdaint)*x_noisy2
+        interpol=lambdaint*x_noisy1+(1-lambdaint)*x_noisy2 ############### Kết hợp 2 ảnh để ra cái nhiễu
         print('interpol', interpol.shape)
         for sample in self.p_sample_loop_progressive(
             model,
@@ -627,7 +632,7 @@ class GaussianDiffusion:
             final = sample
         return final["sample"], interpol, img1, img2
 
-
+    ######################## Cốt lõi của quá trình backwarding, thực hiện 1000 steps truyền ngược.
     def p_sample_loop_progressive(
         self,
         model,
@@ -694,7 +699,8 @@ class GaussianDiffusion:
 #                      viz.image(visualize(img[0, 3,...]), opts=dict(caption=str(i)))
 #                      viz.image(visualize(out["saliency"][0,0,...]), opts=dict(caption='saliency'))
               
-
+    ############# FROM HERE, DDIM
+    ############################################ Thực hiện một bước truyền ngược bằng DDIM
     def ddim_sample(
             self,
             model,
@@ -707,10 +713,12 @@ class GaussianDiffusion:
             eta=0.0,
     ):
         """
-        Sample x_{t-1} from the model using DDIM.
+        Sample x_{t-1} from x_t by the model using DDIM.
 
         Same usage as p_sample().
         """
+
+        ############## Đầu ra dự đoán mean, variance
         out = self.p_mean_variance(
             model,
             x,
@@ -719,7 +727,8 @@ class GaussianDiffusion:
             denoised_fn=denoised_fn,
             model_kwargs=model_kwargs,
         )
-
+        
+        ######## if none - no func to classifier, no grad
         if cond_fn is not None:
             out, saliency = self.condition_score2(cond_fn, out, x, t, model_kwargs=model_kwargs)
         # Usually our model outputs epsilon, but we re-derive it
@@ -728,6 +737,8 @@ class GaussianDiffusion:
 
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
         alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
+
+        ########### sigma impacted by eta
         sigma = (
                 eta
                 * th.sqrt((1 - alpha_bar_prev) / (1 - alpha_bar))
@@ -745,7 +756,7 @@ class GaussianDiffusion:
         sample = mean_pred + nonzero_mask * sigma * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"], "saliency": saliency }
 
-
+    ################ Thực hiện một bước truyền ngược, nhưng mà eta (xichma) = 0 --> deterministic, làm theo kiểu ODE
     def ddim_reverse_sample(
         self,
         model,
@@ -757,9 +768,11 @@ class GaussianDiffusion:
         eta=0.0,
     ):
         """
-        Sample x_{t+1} from the model using DDIM reverse ODE.
+        Sample x_{t-1} from x_t by the model using DDIM reverse ODE.
         """
         assert eta == 0.0, "Reverse ODE only for deterministic path"
+
+        ############ Phần out này giống y hệt với của ddim_sample
         out = self.p_mean_variance(
             model,
             x,
@@ -784,8 +797,7 @@ class GaussianDiffusion:
 
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
 
-
-
+    ################# DDIM với điểm bắt đầu là được tạo ra từ 2 ảnh
     def ddim_sample_loop_interpolation(
         self,
         model,
@@ -828,6 +840,7 @@ class GaussianDiffusion:
             final = sample
         return final["sample"], interpol, img1, img2
 
+    ################ DDIM khi không có điểm bắt đầu từ tập dữ liệu
     def ddim_sample_loop(
         self,
         model,
@@ -870,8 +883,7 @@ class GaussianDiffusion:
 #         viz.image(visualize(final["sample"].cpu()[0, ...]), opts=dict(caption="sample"+ str(10) ))
         return final["sample"]
 
-
-
+    ########################## DDIM với nhiễu được tạo bởi ảnh ban đầu sau 500 steps
     def ddim_sample_loop_known(
             self,
             model,
@@ -927,7 +939,7 @@ class GaussianDiffusion:
 
         return final["sample"], x_noisy, img
 
-
+    ############ Cốt lõi chính của DDIM, truyền ngược
     def ddim_sample_loop_progressive(
         self,
         model,
@@ -955,7 +967,7 @@ class GaussianDiffusion:
             img = noise
         else:
             img = th.randn(*shape, device=device)
-        indices = list(range(time-1))[::-1]
+        indices = list(range(time-1))[::-1] ### list from 998 to 0
         print('indices', indices)
 
         if progress:
@@ -967,12 +979,8 @@ class GaussianDiffusion:
         for i in indices:
 
             k=abs(time-1-i)
-            if k%20==0:
-                print('k',k)
-
             t = th.tensor([k] * shape[0], device=device)
             with th.no_grad():
-
                 out = self.ddim_reverse_sample(
                     model,
                     img,
@@ -986,7 +994,8 @@ class GaussianDiffusion:
                 yield out
                 img = out["sample"]
 
-#         viz.image(visualize(img.cpu()[0,0, ...]), opts=dict(caption="reversesample"))
+#       viz.image(visualize(img.cpu()[0,0, ...]), opts=dict(caption="reversesample"))
+
         for i in indices:
                 t = th.tensor([i] * shape[0], device=device)
                 with th.no_grad():

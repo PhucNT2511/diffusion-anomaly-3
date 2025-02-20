@@ -34,6 +34,7 @@ from guided_diffusion.script_util import (
     args_to_dict,
     classifier_and_diffusion_defaults,
     create_classifier_and_diffusion,
+    create_model_and_diffusion,
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 
@@ -87,7 +88,46 @@ def main():
     dist_util.setup_dist()
     logger.configure()
 
+    ########### Create classifier and diffusion forwarding (just noising data, but no neural networks), not model Unet
     logger.log("creating model and diffusion...")
+    unet, _ = create_model_and_diffusion(
+        image_size=256,
+        class_cond=True,
+        learn_sigma=True,
+        num_channels=128,
+        num_res_blocks=2,
+        channel_mult="",
+        num_heads=1,
+        num_head_channels=-1,
+        num_heads_upsample=-1,
+        attention_resolutions="16",
+        dropout=0,
+        diffusion_steps=1000,
+        noise_schedule="linear",
+        timestep_respacing="",
+        use_kl=False,
+        predict_xstart=False,
+        rescale_timesteps=False,
+        rescale_learned_sigmas=False,
+        use_checkpoint=False,
+        use_scale_shift_norm=False,
+        resblock_updown=False,
+        use_fp16=False,
+        use_new_attention_order=False,
+        dataset='brats'
+    )
+    unet.load_state_dict(
+        dist_util.load_state_dict(args.unet_path, map_location="cpu")
+    )
+    unet.to(dist_util.dev())
+    unet.eval()
+    ##### Unet sampling functions
+    def model_fn(x, t, y=None):
+        assert y is not None
+        return unet(x, t, y if args.class_cond else None)
+
+    #####
+
     model, diffusion = create_classifier_and_diffusion(
         **args_to_dict(args, classifier_and_diffusion_defaults().keys()),
     )
@@ -97,6 +137,11 @@ def main():
             args.schedule_sampler, diffusion, maxt=args.max_L
         )
     
+    ##############
+    sample_fn = (
+        diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
+    )
+
     resume_step = 0
     if args.resume_checkpoint:
         resume_step = parse_resume_step_from_filename(args.resume_checkpoint)
@@ -219,36 +264,32 @@ def main():
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
-            batch_0 = batch
             batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
-        for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
-            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
+        for i, (sub_batch, sub_labels, sub_t) in enumerate(
+            split_microbatches(args.microbatch, batch, labels, t)
         ):
             #
-            logits = model(sub_batch, timesteps=sub_t)
-
+            logits = model(sub_batch, timesteps=sub_t)   
             #
-            t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            with th.enable_grad():
-                sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
-                logits_0 = model(sub_batch_0_detached, t_0)
-                #print("logits_0.requires_grad:", logits_0.requires_grad)
-                log_probs = F.log_softmax(logits_0, dim=-1)
-                #print("log_probs.requires_grad:", log_probs.requires_grad)
-                selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
-                #print("selected.requires_grad:", selected.requires_grad)
-                # Tính toán gradient của sub_batch_0
-                x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
-            grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
-            coarse_mask_0 = min_max_scaler(grad_img)  # normalized coarse_mask 
-            
-            #coarse_mask_ = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
-         
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask_0,sub_masks, reduction="mean")
+            sub_t_0 = th.zeros(sub_batch.shape[0], dtype=th.long, device=dist_util.dev())
+
+            ################# cần sửa ở đây để tái tạo ảnh ban đầu bằng ddim, rồi phân loại nó luôn, vẫn theo nhãn ban đầu - ở đây chưa dùng được classifier guidance
+            sample, x_noisy, org = sample_fn(
+                model_fn,
+                (args.microbatch, 4, 256, 256),sub_batch , org=sub_batch,
+                clip_denoised=True,
+                model_kwargs = None,
+                cond_fn=None,
+                device=dist_util.dev(),
+                noise_level=500
+            )
+            reconstructed_logits = model(sample, timesteps=sub_t_0) 
+              
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") \
+                + 0.1*F.cross_entropy(reconstructed_logits, sub_labels, reduction="none")
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
@@ -389,14 +430,17 @@ def split_microbatches(microbatch, *args):
 
 def create_argparser():
     defaults = dict(
+        unet_path = f"/kaggle/input/brats20-models-fold{FOLD}/model100000.pt",
+        use_ddim = True,
+        ################
         data_dir="",
         val_data_dir="",
         noised=True, ############################################
-        iterations= 50001, # must be more than step from checkpoint
+        iterations= 100001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=4,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",
@@ -408,6 +452,7 @@ def create_argparser():
         fold=1,
         transform=False,
     )
+    
     defaults.update(classifier_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
