@@ -279,7 +279,7 @@ def main():
             ################# cần sửa ở đây để tái tạo ảnh ban đầu bằng ddim, rồi phân loại nó luôn, vẫn theo nhãn ban đầu - ở đây chưa dùng được classifier guidance
             sample, x_noisy, org = sample_fn(
                 model_fn,
-                (sub_batch.shape[0], 4, 256, 256),sub_batch , org=sub_batch,
+                (sub_batch.shape[0], 4, 256, 256),sub_batch.unsqueeze(1) , org=sub_batch.unsqueeze(1),
                 clip_denoised=True,
                 model_kwargs = None,
                 cond_fn=None,
