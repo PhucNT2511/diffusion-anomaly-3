@@ -279,7 +279,7 @@ def main():
             ################# cần sửa ở đây để tái tạo ảnh ban đầu bằng ddim, rồi phân loại nó luôn, vẫn theo nhãn ban đầu - ở đây chưa dùng được classifier guidance
             sample, x_noisy, org = sample_fn(
                 model_fn,
-                (args.microbatch, 4, 256, 256),sub_batch , org=sub_batch,
+                (sub_batch.shape[0], 4, 256, 256),sub_batch , org=sub_batch,
                 clip_denoised=True,
                 model_kwargs = None,
                 cond_fn=None,
@@ -449,7 +449,7 @@ def create_argparser():
         save_interval=10000,
         dataset='brats',
         max_L=1000,
-        fold=1,
+        fold=2,
         transform=False,
     )
     
