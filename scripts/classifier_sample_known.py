@@ -114,8 +114,9 @@ def main():
         if args.dataset=='brats':
         #   Labelmask = th.where(img[2] > 0, 1, 0)
         #   number=img[4][0]
-          if img[2]==0:
-              continue    #take only diseased images as input
+
+            if img[2]==0:
+                continue    #take only diseased images as input
               
 #           viz.image(visualize(img[0][0, 0, ...]), opts=dict(caption="img input 0"))
 #           viz.image(visualize(img[0][0, 1, ...]), opts=dict(caption="img input 1"))
@@ -124,9 +125,9 @@ def main():
 #           viz.image(visualize(img[2][0, ...]), opts=dict(caption="ground truth"))
         else:
 #           viz.image(visualize(img[0][0, ...]), opts=dict(caption="img input"))
-          print('img1', img[1])
-          number=img[1]["path"]
-          print('number', number)
+            print('img1', img[1])
+            number=img[1]["path"]
+            print('number', number)
 
         if args.class_cond:
             classes = th.randint(

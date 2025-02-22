@@ -276,6 +276,8 @@ def main():
             #
             sub_t_0 = th.zeros(sub_batch.shape[0], dtype=th.long, device=dist_util.dev())
 
+            print(sub_batch.shape)
+
             ################# cần sửa ở đây để tái tạo ảnh ban đầu bằng ddim, rồi phân loại nó luôn, vẫn theo nhãn ban đầu - ở đây chưa dùng được classifier guidance
             sample, x_noisy, org = sample_fn(
                 model_fn,
