@@ -123,7 +123,7 @@ def main():
     unet.eval()
     ##### Unet sampling functions
     def model_fn(x, t, y=None):
-        assert y is not None
+        #assert y is not None
         return unet(x, t, y if args.class_cond else None)
 
     #####
