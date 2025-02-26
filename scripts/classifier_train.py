@@ -443,7 +443,7 @@ def create_argparser():
         weight_decay=0.0,
         anneal_lr=True,
         batch_size=32,
-        microbatch=-1,
+        microbatch=4,
         schedule_sampler="uniform",
         resume_checkpoint="",
         log_interval=10,
