@@ -729,6 +729,7 @@ class GaussianDiffusion:
         )
         
         ######## if none - no func to classifier, no grad
+        saliency = None 
         if cond_fn is not None:
             out, saliency = self.condition_score2(cond_fn, out, x, t, model_kwargs=model_kwargs)
         # Usually our model outputs epsilon, but we re-derive it
