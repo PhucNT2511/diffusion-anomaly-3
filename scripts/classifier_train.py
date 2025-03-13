@@ -181,10 +181,11 @@ def main():
         opt_checkpoint = bf.join(
             bf.dirname(args.resume_checkpoint), f"opt{resume_step:06}.pt"
         )
-        logger.log(f"loading optimizer state from checkpoint: {opt_checkpoint}")
-        opt.load_state_dict(
-            dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
-        )
+        if os.path.exists(opt_checkpoint):
+            logger.log(f"loading optimizer state from checkpoint: {opt_checkpoint}")
+            opt.load_state_dict(
+                dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
+            )
     
     # ---------------------------------------------
     lambda_div = 0.1  # hệ số cho diversity loss
