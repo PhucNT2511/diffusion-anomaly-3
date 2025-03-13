@@ -273,6 +273,7 @@ def main():
             )
 
             log_loss_dict(diffusion, sub_t, losses)
+            loss = loss.mean()
 #             if prefix=="train":
 #                 pass
 # #                 viz.line(X=th.ones((1, 1)).cpu() * step, Y=th.Tensor([loss]).unsqueeze(0).cpu(),
