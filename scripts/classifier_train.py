@@ -13,6 +13,7 @@ from guided_diffusion.bratsloader import BRATSDataset
 import blobfile as bf
 import torch as th
 # from guided_diffusion.losses import FocalLoss
+import torch.nn as nn
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
@@ -37,7 +38,18 @@ from guided_diffusion.script_util import (
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 
-
+# Hàm diversity_loss --> kernel diversity
+def diversity_loss(conv_layer):
+    # conv_layer.weight: (out_channels, in_channels, kernel_height, kernel_width)
+    weight = conv_layer.weight  # shape: (N, C, k, k)
+    N = weight.shape[0]
+    weight_flat = weight.view(N, -1)  # shape: (N, C*k*k)
+    weight_norm = weight_flat / (weight_flat.norm(dim=1, keepdim=True) + 1e-8)
+    sim_matrix = th.matmul(weight_norm, weight_norm.t())
+    diag = th.eye(N, device=sim_matrix.device)
+    loss = th.sum((sim_matrix * (1 - diag))**2)
+    num_pairs = N * (N - 1)
+    return loss / num_pairs
 
 def main():
     ##
@@ -173,6 +185,19 @@ def main():
         opt.load_state_dict(
             dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
         )
+    
+    # ---------------------------------------------
+    lambda_div = 0.1  # hệ số cho diversity loss
+    # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
+    layers_to_finetune = []
+    for name, module in model.module.named_modules():
+        if isinstance(module, nn.Conv2d):
+            layers_to_finetune.append((name, module))
+
+    print("\nCác tầng Conv2d sẽ fine-tuning (theo thứ tự từ đầu đến cuối):")
+    for name, _ in layers_to_finetune:
+        print(name)
+    # ---------------------------------------------
 
     logger.log("training classifier model...")
 
@@ -224,42 +249,30 @@ def main():
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
-        for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
-            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
+        ############################################################### Loss
+        for i, (sub_batch, sub_labels, sub_t) in enumerate(
+            split_microbatches(args.microbatch, batch, labels, t)
         ):
             #
-            logits = model(sub_batch, timesteps=sub_t)
+            logits = model(sub_batch, timesteps=sub_t)         
+            loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
+            loss_cls_mean = loss_cls.mean()
 
-            #
-            t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            with th.enable_grad():
-                sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
-                logits_0 = model(sub_batch_0_detached, t_0)
-                #print("logits_0.requires_grad:", logits_0.requires_grad)
-                log_probs = F.log_softmax(logits_0, dim=-1)
-                #print("log_probs.requires_grad:", log_probs.requires_grad)
-                selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
-                #print("selected.requires_grad:", selected.requires_grad)
-                # Tính toán gradient của sub_batch_0
-                x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
-            grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
-            coarse_mask_0 = min_max_scaler(grad_img)  # normalized coarse_mask 
-            
-            #coarse_mask_ = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
-         
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask_0,sub_masks, reduction="mean")
+            # Tính diversity loss trên các tầng Conv2d đã chọn:
+            loss_div = 0.0
+            for lname, layer_module in layers_to_finetune:
+                if isinstance(layer_module, nn.Conv2d):
+                    loss_div = loss_div + diversity_loss(layer_module)
+            # Tổng loss: kết hợp loss phân loại và diversity loss
+            loss = loss_cls_mean + lambda_div * loss_div
+
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
                 logits, sub_labels, k=1, reduction="none"
             )
-            # losses[f"{prefix}_acc@2"] = compute_top_k(
-            #     logits, sub_labels, k=2, reduction="none"
-            # )
-            # print('acc', losses[f"{prefix}_acc@1"])
+
             log_loss_dict(diffusion, sub_t, losses)
-            loss = loss.mean()
 #             if prefix=="train":
 #                 pass
 # #                 viz.line(X=th.ones((1, 1)).cpu() * step, Y=th.Tensor([loss]).unsqueeze(0).cpu(),
@@ -392,14 +405,14 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True, ############################################
-        iterations= 50001, # must be more than step from checkpoint
+        iterations= 100001, # must be more than step from checkpoint
         lr=3e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=4,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="",
+        resume_checkpoint=f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
@@ -416,3 +429,60 @@ def create_argparser():
 
 if __name__ == "__main__":
     main()
+
+
+##### Bây giờ, có 2 hướng chính:
+### Cách 1: Cải thiện chất lượng của cls - grad của cls sẽ tốt theo: Contrastive, Kernel-diversity (Vẫn dùng mask cũ)
+### Cách 2: Bản chất của DDIM và DDPM ở đây cũng chỉ là hỗ trợ cho grad của cls mà thôi, kiểu coarse mask sẽ được tinh chỉnh
+### Trong khi DDIM sẽ heal nhẹ nhàng hơn, thì DDPM sẽ heal mãnh liệt hơn ở vùng nghi ngờ của nó.
+### Vậy liệu có cách nào mask ngon hơn nhiều ko??? --> có thể train thêm mạng khác, hoặc cái gì đó, thay vì dùng đạo hàm tại thời điểm ban đầu (có thể kết hợp thêm các thời điểm khác) làm mask
+
+
+'''
+def forward_backward_log(data_load, data_loader, prefix="train"):
+        try:
+            batch, _, labels, masks = next(data_loader)
+        except:
+            data_loader = iter(data_load)
+            batch, _, labels, masks = next(data_loader)
+
+        # print('labels', labels)
+        batch = batch.to(dist_util.dev())
+        labels= labels.to(dist_util.dev())
+        masks = masks.to(dist_util.dev())
+        if args.noised:
+            t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
+            # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
+            batch_0 = batch
+            batch = diffusion.q_sample(batch, t)
+        else:
+            t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
+
+        ##### Ở đây đang cố thử hiệu chỉnh bằng 2 thành phần: Cross_entropy loss + mse(coarse_mask(grad của cls), groundtruth_mask) --> supervised DDPM, not  WSSS
+        for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
+            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
+        ):
+            #
+            logits = model(sub_batch, timesteps=sub_t)
+
+            #
+            t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
+            ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
+            with th.enable_grad():
+                sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
+                logits_0 = model(sub_batch_0_detached, t_0)
+                #print("logits_0.requires_grad:", logits_0.requires_grad)
+                log_probs = F.log_softmax(logits_0, dim=-1)
+                #print("log_probs.requires_grad:", log_probs.requires_grad)
+                selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
+                #print("selected.requires_grad:", selected.requires_grad)
+                # Tính toán gradient của sub_batch_0
+                x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
+            grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
+            coarse_mask_0 = min_max_scaler(grad_img)  # normalized coarse_mask 
+            
+            #coarse_mask_ = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
+         
+            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask_0, sub_masks, reduction="mean")
+
+'''

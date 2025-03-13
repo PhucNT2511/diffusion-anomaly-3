@@ -282,7 +282,9 @@ class AttentionBlock(nn.Module):
             self.num_heads = channels // num_head_channels
         self.use_checkpoint = use_checkpoint
         self.norm = normalization(channels)
-        self.qkv = conv_nd(1, channels, channels * 3, 1)
+        ##### QKV - (1,c,3c,1) -- kernel_size = 1x1, in_channel = C, out_channel = 3C. Obviously, it's a linear transformation.
+        self.qkv = conv_nd(1, channels, channels * 3, 1) ## Conv 1d, với đầu vào là N ảnh có CxHxW, thì đầu ra sẽ là Nx3CxHxH, đây chính là concat của 3 ma trận Q,K,V (làm vậy cho nhanh thôi)
+        ##### Type of attention be used
         if use_new_attention_order:
             # split qkv before split heads
             self.attention = QKVAttention(self.num_heads)
@@ -290,6 +292,8 @@ class AttentionBlock(nn.Module):
             # split heads before split qkv
             self.attention = QKVAttentionLegacy(self.num_heads)
 
+        ### Chỉ là một phép biến đổi tuyến tính (1,C,C,1x1), ko làm thay đổi cái gì hết, song ban đầu sẽ khởi tạo bằng 0
+        ### Việc khởi tạo = 0 sẽ giúp ban đầu là phép Identity() (x + proj(x) ~ x)
         self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
 
     def forward(self, x):
@@ -298,10 +302,13 @@ class AttentionBlock(nn.Module):
     def _forward(self, x):
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)
-        qkv = self.qkv(self.norm(x))
-        h = self.attention(qkv)
+        
+        ### Attention mechanism -- Actually, I don't really know about how this works
+        qkv = self.qkv(self.norm(x))  ### Q = x*W_Q, K = x*W_K, V = x*W_V --> concat
+        h = self.attention(qkv) ### Apply attention 
         h = self.proj_out(h)
-        return (x + h).reshape(b, c, *spatial)
+
+        return (x + h).reshape(b, c, *spatial) ### Residual connection
 
 
 def count_flops_attn(model, _x, y):
@@ -323,7 +330,9 @@ def count_flops_attn(model, _x, y):
     matmul_ops = 2 * b * (num_spatial ** 2) * c
     model.total_ops += th.DoubleTensor([matmul_ops])
 
-
+### The two attention func below also describe the same self-attention (like in Transformer), however, each differs from the other about just the order
+### As for Maths, they are similar, but in code running, they are a little different because of system's computational capability.
+### Default: Legacy
 class QKVAttentionLegacy(nn.Module):
     """
     A module which performs QKV attention. Matches legacy QKVAttention + input/ouput heads shaping
@@ -343,8 +352,8 @@ class QKVAttentionLegacy(nn.Module):
         bs, width, length = qkv.shape
         assert width % (3 * self.n_heads) == 0
         ch = width // (3 * self.n_heads)
-        q, k, v = qkv.reshape(bs * self.n_heads, ch * 3, length).split(ch, dim=1)
-        scale = 1 / math.sqrt(math.sqrt(ch))
+        q, k, v = qkv.reshape(bs * self.n_heads, ch * 3, length).split(ch, dim=1) ### Tách Q,K,V ra
+        scale = 1 / math.sqrt(math.sqrt(ch)) ### 1/sqrt(d)
         weight = th.einsum(
             "bct,bcs->bts", q * scale, k * scale
         )  # More stable with f16 than dividing afterwards
@@ -359,7 +368,7 @@ class QKVAttentionLegacy(nn.Module):
 
 class QKVAttention(nn.Module):
     """
-    A module which performs QKV attention and splits in a different order.
+    A module which performs QKV attention and splits in a Different Order.
     """
 
     def __init__(self, n_heads):
