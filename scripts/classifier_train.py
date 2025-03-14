@@ -406,7 +406,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True, ############################################
-        iterations= 100001, # must be more than step from checkpoint
+        iterations= 50001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
