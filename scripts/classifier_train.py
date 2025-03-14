@@ -196,7 +196,7 @@ def main():
             layers_to_finetune.append((name, module))
 
     print("\nCác tầng Conv2d sẽ fine-tuning (theo thứ tự từ đầu đến cuối):")
-    for name, _ in layers_to_finetune:
+    for name, _ in layers_to_finetune[:10]:
         print(name)
     # ---------------------------------------------
 
@@ -260,7 +260,7 @@ def main():
 
             # Tính diversity loss trên các tầng Conv2d đã chọn:
             loss_div = 0.0
-            for lname, layer_module in layers_to_finetune:
+            for lname, layer_module in layers_to_finetune[:10]:
                 if isinstance(layer_module, nn.Conv2d):
                     loss_div = loss_div + diversity_loss(layer_module)
             # Tổng loss: kết hợp loss phân loại và diversity loss
