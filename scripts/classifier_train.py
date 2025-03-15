@@ -52,6 +52,20 @@ def diversity_loss(conv_layer):
     return loss / num_pairs
 
 def main():
+    # ---------------------------------------------
+    lambda_div = 0.1  # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
+    # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
+    t = 1
+    layers_to_finetune = []
+    for name, module in model.module.named_modules():
+        if isinstance(module, nn.Conv2d) :#and ('in_layers' in name):
+            layers_to_finetune.append((name, module))
+
+    print("\nCác tầng Conv2d sẽ fine-tuning (theo thứ tự từ đầu đến cuối):")
+    for name, _ in layers_to_finetune[:1]:
+        print(name)
+    # ---------------------------------------------
+
     ##
     classifier_scale = 100
     '''
@@ -186,19 +200,6 @@ def main():
             opt.load_state_dict(
                 dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
             )
-    
-    # ---------------------------------------------
-    lambda_div = 0.1  # hệ số cho diversity loss
-    # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
-    layers_to_finetune = []
-    for name, module in model.module.named_modules():
-        if isinstance(module, nn.Conv2d) :#and ('in_layers' in name):
-            layers_to_finetune.append((name, module))
-
-    print("\nCác tầng Conv2d sẽ fine-tuning (theo thứ tự từ đầu đến cuối):")
-    for name, _ in layers_to_finetune[:9]:
-        print(name)
-    # ---------------------------------------------
 
     logger.log("training classifier model...")
 
@@ -260,7 +261,7 @@ def main():
 
             # Tính diversity loss trên các tầng Conv2d đã chọn:
             loss_div = 0.0
-            for lname, layer_module in layers_to_finetune[:9]:
+            for lname, layer_module in layers_to_finetune[:1]:
                 if isinstance(layer_module, nn.Conv2d):
                     loss_div = loss_div + diversity_loss(layer_module)
             # Tổng loss: kết hợp loss phân loại và diversity loss
@@ -406,7 +407,7 @@ def create_argparser():
         data_dir="",
         val_data_dir="",
         noised=True, ############################################
-        iterations= 50001, # must be more than step from checkpoint
+        iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
@@ -434,6 +435,8 @@ if __name__ == "__main__":
 
 ##### Bây giờ, có 2 hướng chính:
 ### Cách 1: Cải thiện chất lượng của cls - grad của cls sẽ tốt theo: Contrastive, Kernel-diversity (Vẫn dùng mask cũ)
+### + Về kernel_diversity: Chỉ nên diversity ở những layer CNN đầu thôi, chứ còn về sau khi nó đã tổng hợp được nhiều thông tin thì ko cần bắt phải khác nhau.
+### + Có thể sử dụng thêm LASSO regularization --> loại bỏ những nơ-ron ko cần thiết (dư thừa)
 ### Cách 2: Bản chất của DDIM và DDPM ở đây cũng chỉ là hỗ trợ cho grad của cls mà thôi, kiểu coarse mask sẽ được tinh chỉnh
 ### Trong khi DDIM sẽ heal nhẹ nhàng hơn, thì DDPM sẽ heal mãnh liệt hơn ở vùng nghi ngờ của nó.
 ### Vậy liệu có cách nào mask ngon hơn nhiều ko??? --> có thể train thêm mạng khác, hoặc cái gì đó, thay vì dùng đạo hàm tại thời điểm ban đầu (có thể kết hợp thêm các thời điểm khác) làm mask
