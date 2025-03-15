@@ -52,19 +52,6 @@ def diversity_loss(conv_layer):
     return loss / num_pairs
 
 def main():
-    # ---------------------------------------------
-    lambda_div = 0.1  # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
-    # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
-    t = 1
-    layers_to_finetune = []
-    for name, module in model.module.named_modules():
-        if isinstance(module, nn.Conv2d) :#and ('in_layers' in name):
-            layers_to_finetune.append((name, module))
-
-    print("\nCác tầng Conv2d sẽ fine-tuning (theo thứ tự từ đầu đến cuối):")
-    for name, _ in layers_to_finetune[:1]:
-        print(name)
-    # ---------------------------------------------
 
     ##
     classifier_scale = 100
@@ -231,6 +218,21 @@ def main():
         print(f"Validation dataset size: {data_size}")
 
         return np.mean(losses), np.mean(accuracies)
+    
+    # ---------------------------------------------
+     # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
+    lambda_div = 0.1 
+
+    # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
+    layers_to_finetune = []
+    for name, module in model.module.named_modules():
+        if isinstance(module, nn.Conv2d) :#and ('in_layers' in name):
+            layers_to_finetune.append((name, module))
+
+    print("\nCác tầng Conv2d sẽ fine-tuning (theo thứ tự từ đầu đến cuối):")
+    for name, _ in layers_to_finetune[:1]:
+        print(name)
+    # ---------------------------------------------
     
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
@@ -420,7 +422,7 @@ def create_argparser():
         save_interval=10000,
         dataset='brats',
         max_L=1000,
-        fold=1,
+        fold=2,
         transform=False,
     )
     defaults.update(classifier_and_diffusion_defaults())
