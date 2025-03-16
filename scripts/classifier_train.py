@@ -263,12 +263,12 @@ def main():
 
             # Tính diversity loss trên các tầng Conv2d đã chọn:
             loss_div = 0.0
-            '''
+            
             for lname, layer_module in layers_to_finetune[:1]:
                 if isinstance(layer_module, nn.Conv2d):
                     loss_div = loss_div + diversity_loss(layer_module)
             # Tổng loss: kết hợp loss phân loại và diversity loss
-            '''
+            
             loss = loss_cls + lambda_div * loss_div
 
             losses = {}
@@ -410,7 +410,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=True, ############################################
+        noised=False, ############################################
         iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
@@ -441,6 +441,10 @@ if __name__ == "__main__":
 ### Cách 1: Cải thiện chất lượng của cls - grad của cls sẽ tốt theo: Contrastive, Kernel-diversity (Vẫn dùng mask cũ)
 ### + Về kernel_diversity: Chỉ nên diversity ở những layer CNN đầu thôi, chứ còn về sau khi nó đã tổng hợp được nhiều thông tin thì ko cần bắt phải khác nhau.
 ### + Có thể sử dụng thêm LASSO regularization --> loại bỏ những nơ-ron ko cần thiết (dư thừa)
+### Nhưng mà thực sự thì cls ở đây đang có 2 thái cực: nếu chỉ tập trung vào ảnh gốc ban đầu thì mask khởi tạo rất tốt, nếu muốn hướng dẫn grad thì chưa đủ thuyết phục.
+### Vậy có nên train thêm 1 cls chỉ dựa trên ảnh ban đầu thui. Kết hợp giữa nó và cls trên trên ảnh noise để refined 
+### Làm như vậy coarse mask sẽ chính xác hơn nhiều.
+
 ### Cách 2: Bản chất của DDIM và DDPM ở đây cũng chỉ là hỗ trợ cho grad của cls mà thôi, kiểu coarse mask sẽ được tinh chỉnh
 ### Trong khi DDIM sẽ heal nhẹ nhàng hơn, thì DDPM sẽ heal mãnh liệt hơn ở vùng nghi ngờ của nó.
 ### Vậy liệu có cách nào mask ngon hơn nhiều ko??? --> có thể train thêm mạng khác, hoặc cái gì đó, thay vì dùng đạo hàm tại thời điểm ban đầu (có thể kết hợp thêm các thời điểm khác) làm mask
