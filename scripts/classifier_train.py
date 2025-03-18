@@ -265,10 +265,9 @@ def main():
             loss_div = 0.0
             
             for lname, layer_module in layers_to_finetune[:1]:
-                if isinstance(layer_module, nn.Conv2d):
-                    loss_div = loss_div + diversity_loss(layer_module)
+                loss_div = loss_div + diversity_loss(layer_module)
+
             # Tổng loss: kết hợp loss phân loại và diversity loss
-            
             loss = loss_cls + lambda_div * loss_div
 
             losses = {}
@@ -361,8 +360,8 @@ def main():
         if not (step+1) % len(datal): ## số batch: (len(datal))
             wandb.log({
                 "epoch": (step+1)/(len(datal)),
-                "train_acc@1": acc_epoch/(len(datal))/4,
-                "train_loss": loss_epoch/(len(datal))/4,
+                "train_acc@1": acc_epoch/(len(datal))/args.batch_size,
+                "train_loss": loss_epoch/(len(datal))/args.batch_size,
             })
             loss_epoch = 0
             acc_epoch = 0
@@ -425,7 +424,7 @@ def create_argparser():
         dataset='brats',
         max_L=1000,
         fold=2,
-        transform=True,
+        transform=False,
     )
     defaults.update(classifier_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
