@@ -437,7 +437,7 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier = None, initial_t = 500):
+    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, initial_t=500):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -445,19 +445,19 @@ class GaussianDiffusion:
         Unlike condition_mean(), this instead uses the conditioning strategy
         from Song et al (2020).
         """
-        t=t.long()
+        t = t.long()
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
 
         ########### cfn is Refined Grad
-        a, cfn= cond_fn(
+        a, cfn = cond_fn(
             x, self._scale_timesteps(t).long(), **model_kwargs
         )
 
         if (classifier is None) or (t[0] > initial_t):
             ######### Use refined grad - Unlike condition mean, we adjust in noise
-            eps = eps - (1 - alpha_bar).sqrt() * cfn  
+            eps = eps - (1 - alpha_bar).sqrt() * cfn
 
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
@@ -465,18 +465,18 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
 
-            return out, cfn ### cfn is saliency
-        
-        else:
-            # Biến cfn thành một tensor có thể học
-            cfn = cfn.clone().detach().requires_grad_(True)
-            print(cfn.shape)
+            return out, cfn  ### cfn is saliency
 
-            # Optimizer cho cfn
+        else:
+            # Ensure cfn requires grad
+            cfn = cfn.clone().detach().requires_grad_(True)
+            print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
+
+            # Optimizer for cfn
             optimizer = th.optim.Adam([cfn], lr=0.0001)
 
             labels = th.randint(
-                low=0, high=1, size=(x.shape[0],), device=x.device
+                low=0, high=2, size=(x.shape[0],), device=x.device
             )
 
             lambda_bce = 0.1
@@ -484,29 +484,37 @@ class GaussianDiffusion:
             for _ in range(20 - 1):
                 optimizer.zero_grad()
 
-                # Điều chỉnh eps
-                eps_adj = eps - (1 - alpha_bar).sqrt() * cfn  
+                # Adjust eps
+                eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
 
-                # Dự đoán xstart mới
+                # Predict new xstart
                 pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
 
-                # Tính mean mới
+                # Compute new mean
                 mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
 
-                logits = classifier(mean, timesteps=t-1)         
-                loss1 = F.cross_entropy(logits, labels, reduction="none")
-                loss2 = th.norm(cfn, p=2, dim=tuple(range(1, cfn.ndim)))  # Shape: (batch_size,)
-                print(f'loss1 - {loss1} + loss2 - {loss2}')
-                loss = loss1 + loss2
+                logits = classifier(mean, timesteps=t - 1)
+                print(f"logits requires_grad: {logits.requires_grad}")
 
-                # Gradient descent step
+                loss1 = F.cross_entropy(logits, labels, reduction="none")
+                print(f"loss1 requires_grad: {loss1.requires_grad}")
+
+                loss2 = th.norm(cfn, p=2, dim=tuple(range(1, cfn.ndim)))
+                print(f"loss2 requires_grad: {loss2.requires_grad}")
+
+                loss = loss1.mean() + loss2.mean()
+
+                # Check loss requires grad before backward
+                if not loss.requires_grad:
+                    raise RuntimeError("Loss does not require grad!")
+
                 loss.backward()
                 optimizer.step()
 
-            # Cập nhật giá trị cuối cùng của eps
+            # Update final eps
             eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
 
-            # Tạo output dictionary mới
+            # Create new output dictionary
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
             out["mean"], _, _ = self.q_posterior_mean_variance(
@@ -514,6 +522,7 @@ class GaussianDiffusion:
             )
 
             return out, cfn.detach()
+
 
 
     ######### SAMPLE DATA FOLLOW BATCHS OF DATA:
