@@ -437,7 +437,7 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, initial_t=500):
+    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, t_set = [10,9,8,7,6,5,4,3,2,1]):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -455,7 +455,7 @@ class GaussianDiffusion:
             x, self._scale_timesteps(t).long(), **model_kwargs
         )
 
-        if (classifier is None) or (t[0] > initial_t):
+        if (classifier is None) or (t[0] not in t_set):
             ######### Use refined grad - Unlike condition mean, we adjust in noise
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
