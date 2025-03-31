@@ -468,67 +468,68 @@ class GaussianDiffusion:
             return out, cfn  ### cfn is saliency
 
         else:
-            # Ensure cfn requires grad
-            cfn = cfn.clone().detach().requires_grad_(True)
-            print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
+            with th.enable_grad():
+                # Ensure cfn requires grad
+                cfn = cfn.clone().detach().requires_grad_(True)
+                print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
 
-            # Optimizer for cfn
-            optimizer = th.optim.Adam([cfn], lr=0.0001)
+                # Optimizer for cfn
+                optimizer = th.optim.Adam([cfn], lr=0.0001)
 
-            labels = th.randint(
-                low=0, high=2, size=(x.shape[0],), device=x.device
-            )
+                labels = th.randint(
+                    low=0, high=2, size=(x.shape[0],), device=x.device
+                )
 
-            lambda_bce = 0.1
+                lambda_bce = 0.1
 
-            for _ in range(20 - 1):
-                optimizer.zero_grad()
+                for _ in range(20 - 1):
+                    optimizer.zero_grad()
 
-                # Adjust eps
-                eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
+                    # Adjust eps
+                    eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
 
-                print(f"eps_adj requires_grad: {eps_adj.requires_grad}")
+                    print(f"eps_adj requires_grad: {eps_adj.requires_grad}")
 
-                # Predict new xstart
-                pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
-                print(f"pred_xstart requires_grad: {pred_xstart.requires_grad}")
+                    # Predict new xstart
+                    pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
+                    print(f"pred_xstart requires_grad: {pred_xstart.requires_grad}")
 
 
-                # Compute new mean
-                mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
+                    # Compute new mean
+                    mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
 
-                print(f"mean requires_grad: {mean.requires_grad}")
+                    print(f"mean requires_grad: {mean.requires_grad}")
 
-                logits = classifier(mean, timesteps=t - 1)
-                print(f"logits requires_grad: {logits.requires_grad}")
+                    logits = classifier(mean, timesteps=t - 1)
+                    print(f"logits requires_grad: {logits.requires_grad}")
 
-                loss1 = F.cross_entropy(logits, labels, reduction="none")
-                print(f"loss1 requires_grad: {loss1.requires_grad}")
+                    loss1 = F.cross_entropy(logits, labels, reduction="none")
+                    print(f"loss1 requires_grad: {loss1.requires_grad}")
 
-                loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
+                    loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
 
-                print(f"loss2 requires_grad: {loss2.requires_grad}")
+                    print(f"loss2 requires_grad: {loss2.requires_grad}")
 
-                loss = loss1.mean() + loss2.mean()
+                    loss = loss1.mean() + loss2.mean()
 
-                # Check loss requires grad before backward
-                if not loss.requires_grad:
-                    raise RuntimeError("Loss does not require grad!")
+                    # Check loss requires grad before backward
+                    if not loss.requires_grad:
+                        raise RuntimeError("Loss does not require grad!")
 
-                loss.backward()
-                optimizer.step()
+                    loss.backward()
+                    optimizer.step()
 
-            # Update final eps
-            eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
+                # Update final eps
+                eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
 
-            # Create new output dictionary
-            out = p_mean_var.copy()
-            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
-            out["mean"], _, _ = self.q_posterior_mean_variance(
-                x_start=out["pred_xstart"], x_t=x, t=t
-            )
+                # Create new output dictionary
+                out = p_mean_var.copy()
+                out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
+                out["mean"], _, _ = self.q_posterior_mean_variance(
+                    x_start=out["pred_xstart"], x_t=x, t=t
+                )
 
-            return out, cfn.detach()
+                return out, cfn.detach()
 
 
 
