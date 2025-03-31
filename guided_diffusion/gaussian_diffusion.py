@@ -493,6 +493,8 @@ class GaussianDiffusion:
                 # Compute new mean
                 mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
 
+                print(f"mean requires_grad: {mean.requires_grad}")
+
                 logits = classifier(mean, timesteps=t - 1)
                 print(f"logits requires_grad: {logits.requires_grad}")
 
