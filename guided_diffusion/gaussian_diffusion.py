@@ -469,7 +469,8 @@ class GaussianDiffusion:
         
         else:
             # Biến cfn thành một tensor có thể học
-            cfn = th.tensor(cfn, requires_grad=True, dtype=x.dtype, device=x.device)
+            cfn = cfn.clone().detach().requires_grad_(True)
+            print(cfn.shape)
 
             # Optimizer cho cfn
             optimizer = th.optim.Adam([cfn], lr=0.0001)
@@ -494,7 +495,7 @@ class GaussianDiffusion:
 
                 logits = classifier(mean, timesteps=t-1)         
                 loss1 = F.cross_entropy(logits, labels, reduction="none")
-                loss2 = th.norm(cfn, p=2)
+                loss2 = th.norm(cfn, p=2, dim=tuple(range(1, cfn.ndim)))  # Shape: (batch_size,)
                 print(f'loss1 - {loss1} + loss2 - {loss2}')
                 loss = loss1 + loss2
 
