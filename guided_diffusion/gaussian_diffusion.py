@@ -487,8 +487,12 @@ class GaussianDiffusion:
                 # Adjust eps
                 eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
 
+                print(f"eps_adj requires_grad: {eps_adj.requires_grad}")
+
                 # Predict new xstart
                 pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
+                print(f"pred_xstart requires_grad: {pred_xstart.requires_grad}")
+
 
                 # Compute new mean
                 mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
@@ -501,7 +505,8 @@ class GaussianDiffusion:
                 loss1 = F.cross_entropy(logits, labels, reduction="none")
                 print(f"loss1 requires_grad: {loss1.requires_grad}")
 
-                loss2 = th.norm(cfn, p=2, dim=tuple(range(1, cfn.ndim)))
+                loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
+
                 print(f"loss2 requires_grad: {loss2.requires_grad}")
 
                 loss = loss1.mean() + loss2.mean()
