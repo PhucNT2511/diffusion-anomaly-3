@@ -445,8 +445,8 @@ def create_gaussian_diffusion(
                 if not sigma_small
                 else gd.ModelVarType.FIXED_SMALL
             )
-            if not learn_sigma
-            else gd.ModelVarType.LEARNED_RANGE
+            if not learn_sigma  
+            else gd.ModelVarType.LEARNED_RANGE  ### learned_range because of True default
         ),
         loss_type=loss_type,
         rescale_timesteps=rescale_timesteps,

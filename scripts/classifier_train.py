@@ -263,10 +263,11 @@ def main():
             
             # Tính diversity loss trên các tầng Conv2d đã chọn:
             loss_div = 0.0
-            
+            '''
             for lname, layer_module in layers_to_finetune[:1]:
                 loss_div = loss_div + diversity_loss(layer_module)
-
+            '''
+            
             # Tổng loss: kết hợp loss phân loại và diversity loss
             loss = loss_cls + lambda_div * loss_div
 
@@ -409,7 +410,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=False, ############################################
+        noised=True, ############################################
         iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
