@@ -480,7 +480,7 @@ class GaussianDiffusion:
                     low=0, high=2, size=(x.shape[0],), device=x.device
                 )
 
-                lambda_bce = 0.1
+                lambda_eff = 0.1
 
                 for _ in range(20 - 1):
                     optimizer.zero_grad()
@@ -488,29 +488,17 @@ class GaussianDiffusion:
                     # Adjust eps
                     eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
 
-                    print(f"eps_adj requires_grad: {eps_adj.requires_grad}")
-
                     # Predict new xstart
                     pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
-                    print(f"pred_xstart requires_grad: {pred_xstart.requires_grad}")
-
 
                     # Compute new mean
                     mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
 
-                    print(f"mean requires_grad: {mean.requires_grad}")
-
                     logits = classifier(mean, timesteps=t - 1)
-                    print(f"logits requires_grad: {logits.requires_grad}")
 
                     loss1 = F.cross_entropy(logits, labels, reduction="none")
-                    print(f"loss1 requires_grad: {loss1.requires_grad}")
-
                     loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
-
-                    print(f"loss2 requires_grad: {loss2.requires_grad}")
-
-                    loss = loss1.mean() + loss2.mean()
+                    loss = loss1.mean() + lambda_eff * loss2.mean()
 
                     # Check loss requires grad before backward
                     if not loss.requires_grad:
