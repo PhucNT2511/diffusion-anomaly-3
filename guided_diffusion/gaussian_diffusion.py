@@ -471,7 +471,7 @@ class GaussianDiffusion:
             with th.enable_grad():
                 # Ensure cfn requires grad
                 cfn = cfn.clone().detach().requires_grad_(True)
-                print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
+                #print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
 
                 # Optimizer for cfn
                 optimizer = th.optim.Adam([cfn], lr=0.0001)
