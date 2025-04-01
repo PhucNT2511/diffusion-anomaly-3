@@ -510,7 +510,7 @@ class GaussianDiffusion:
                     logits = classifier(mean, timesteps = t-1)
 
                     loss1 = F.cross_entropy(logits, labels, reduction="none")
-                    loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
+                    loss2 = th.mean(th.square(cfn), dim=(1, 2, 3))
 
                     print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
                     print(f"loss1: {loss1} - loss2: {loss2}")
@@ -525,7 +525,7 @@ class GaussianDiffusion:
 
                 #####  Sau khi điều chỉnh xong mới nên nhân thêm norm(cls_x0)
                 cfn = cfn * model_kwargs['mask'][:, None, :, :] 
-                
+
                 # Update final eps
                 eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
 
