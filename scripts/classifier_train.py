@@ -281,7 +281,7 @@ def main():
                 log_probs = F.log_softmax(logits_0, dim=-1)
                 selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
 
-                a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
+                a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
                 mean_a = th.mean(a, dim=(2, 3), keepdim=True)
                 loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
 
