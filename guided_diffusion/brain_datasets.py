@@ -54,17 +54,17 @@ class BRATSDataset(torch.utils.data.Dataset):
 
         
         ## train cả classifier và train model đều trên cùng một tập dữ liệu ?? (như vậy thì mất cân bằng nhãn cho classifier hả)
-        data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/data_split.npz', allow_pickle=True)
-        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/meta_data.csv')
-        volume_ids = data_split[f'{mode}_folds'].item()[f'fold_{fold}']
+        data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/data_split.npy', allow_pickle=True)
+        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats21_set_1.csv')
+        volume_ids = data_split.item()['dataset_15k'][f'train_fold_{fold}']
         
         ############## Cần dẫn link cho 2 nhóm, một nhóm toàn link positive, 1 nhóm toàn link negative. Hoặc dùng chung nhưng phải có lable
         if self.only_positive:
-            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['img_path'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['img_path'].values
         elif self.only_negative:
-            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 0)]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['img_path'].isin(volume_ids)) & (meta_data_df['label'] == 0)]['img_path'].values
         else:
-            self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
+            self.datapaths = meta_data_df[meta_data_df['img_path'].isin(volume_ids)]['img_path'].values
 
         print(f'Number of {mode} data: {len(self.datapaths)}')
         
@@ -76,11 +76,16 @@ class BRATSDataset(torch.utils.data.Dataset):
         for i in range(image.shape[0]):
             image[i] = irm_min_max_preprocess(image[i])
         mask = data['mask']
+
         padding_image = np.zeros((4, 256, 256))
         padding_image[:, 8:-8, 8:-8] = image
         padding_mask = np.zeros((256, 256))
         padding_mask[8:-8, 8:-8] = mask
-        label = 1 if np.sum(mask) > 0 else 0
+        if np.sum(mask) > 0:
+            label = 1
+            mask = normalize(mask)
+        else:
+            label = 0
 
         if self.transforms:
             padding_image = self.transforms(torch.Tensor(padding_image))
@@ -108,17 +113,17 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         self.only_negative = only_negative
         self.transform = transform
 
-        data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/data_split.npz', allow_pickle=True)
-        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/meta_data.csv')
-        volume_ids = data_split[f'{mode}_folds'].item()[f'fold_{fold}']
+        data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/data_split.npy', allow_pickle=True)
+        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats21_set_1.csv')
+        volume_ids = data_split.item()['dataset_15k'][f'train_fold_{fold}']
         
         ############## Cần dẫn link cho 2 nhóm, một nhóm toàn link positive, 1 nhóm toàn link negative. Hoặc dùng chung nhưng phải có lable
         if self.only_positive:
-            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['img_path'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['img_path'].values
         elif self.only_negative:
-            self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 0)]['path'].values
+            self.datapaths = meta_data_df[(meta_data_df['img_path'].isin(volume_ids)) & (meta_data_df['label'] == 0)]['img_path'].values
         else:
-            self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
+            self.datapaths = meta_data_df[meta_data_df['img_path'].isin(volume_ids)]['img_path'].values
 
     def __len__(self): ## len như bthg
         return len(self.datapaths)
@@ -135,7 +140,11 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         padding_image[:, 8:-8, 8:-8] = image
         padding_mask = np.zeros((256, 256))
         padding_mask[8:-8, 8:-8] = mask
-        label = 1 if np.sum(mask) > 0 else 0
+        if np.sum(mask) > 0:
+            label = 1
+            mask = normalize(mask)
+        else:
+            label = 0
 
         if self.transform:
             padding_image = self.transform(torch.Tensor(padding_image))
