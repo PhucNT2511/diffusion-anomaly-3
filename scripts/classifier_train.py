@@ -275,6 +275,8 @@ def main():
             '''
 
             ### Tính loss túm tụm
+            print("sub_batch_0.requires_grad:", sub_batch_0.requires_grad)
+
             logits_0 = model(sub_batch_0, sub_t_0)
             log_probs = F.log_softmax(logits_0, dim=-1)
             selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
