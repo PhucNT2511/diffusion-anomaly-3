@@ -254,22 +254,34 @@ def main():
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch, sub_labels, sub_t) in enumerate(
-            split_microbatches(args.microbatch, batch, labels, t)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
             loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
             
             # Tính diversity loss trên các tầng Conv2d đã chọn:
-            loss_div = 0.0
             '''
+            loss_div = 0.0
+            
             for lname, layer_module in layers_to_finetune[:1]:
                 loss_div = loss_div + diversity_loss(layer_module)
             '''
-            
+
+            ### Tính loss túm tụm
+            classes = th.randint(
+                low=0, high=1, size=(sub_batch_0.shape[0],), device=sub_batch_0.dev()
+            )
+            t_0 = th.zeros(sub_batch_0.shape[0], dtype=th.long, device=dist_util.dev())
+            logits_0 = model(sub_batch_0, t_0)
+            log_probs = F.log_softmax(logits_0, dim=-1)
+            selected = log_probs[range(len(logits_0)), classes.view(-1)]
+            a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
+            loss_centralization = th.abs(a - th.mean(a, dim=2))
+            print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             # Tổng loss: kết hợp loss phân loại và diversity loss
-            loss = loss_cls + lambda_div * loss_div
+            loss = loss_cls + 0.1 * loss_centralization
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
