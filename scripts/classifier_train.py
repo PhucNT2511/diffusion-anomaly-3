@@ -265,9 +265,6 @@ def main():
             #
             logits = model(sub_batch, timesteps=sub_t)         
             loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
-
-            print("loss_cls.requires_grad:", loss_cls.requires_grad)
-            print("sub_batch.requires_grad:", sub_batch.requires_grad)
             
             # Tính diversity loss trên các tầng Conv2d đã chọn:
             '''
@@ -278,17 +275,16 @@ def main():
             '''
 
             ### Tính loss túm tụm
-            print("sub_batch_0.requires_grad:", sub_batch_0.requires_grad)
+            with th.enable_grad():     
+                sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
+                logits_0 = model(sub_batch_0, sub_t_0)
+                log_probs = F.log_softmax(logits_0, dim=-1)
+                selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
 
-            logits_0 = model(sub_batch_0, sub_t_0)
-            print("logits_0.requires_grad:", logits_0.requires_grad)
-            print("logits.requires_grad:", logits.requires_grad)
-            log_probs = F.log_softmax(logits_0, dim=-1)
-            selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
+                a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
+                mean_a = th.mean(a, dim=(2, 3), keepdim=True)
+                loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
 
-            a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
-            mean_a = th.mean(a, dim=(2, 3), keepdim=True)
-            loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
             print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             # Tổng loss: kết hợp loss phân loại và diversity loss
             loss = loss_cls + 100 * loss_centralization
