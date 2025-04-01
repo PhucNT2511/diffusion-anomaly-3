@@ -252,10 +252,15 @@ def main():
             batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
+        
+        classes = th.randint(
+                low=0, high=1, size=(batch_0.shape[0],), device=dist_util.dev()
+            )
+        t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
@@ -270,13 +275,9 @@ def main():
             '''
 
             ### Tính loss túm tụm
-            classes = th.randint(
-                low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev()
-            )
-            t_0 = th.zeros(sub_batch_0.shape[0], dtype=th.long, device=dist_util.dev())
-            logits_0 = model(sub_batch_0, t_0)
+            logits_0 = model(sub_batch_0, sub_t_0)
             log_probs = F.log_softmax(logits_0, dim=-1)
-            selected = log_probs[range(len(logits_0)), classes.view(-1)]
+            selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
             a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
             loss_centralization = th.abs(a - th.mean(a, dim=2))
             print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
