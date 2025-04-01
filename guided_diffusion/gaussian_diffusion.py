@@ -399,7 +399,7 @@ class GaussianDiffusion:
             return t.float() * (1000.0 / self.num_timesteps)
         return t
 
-    ##### The two following functions are for calcutating Mean after integrating Grad of conditional, in 2 ways.
+    ##### We have had Mean(x{t-1}) by p_mean_var already. The two following functions are for calcutating Mean (x_{t-1}) after integrating Grad of conditional, in 2 ways.
     ### Compute the mean for the previous step: Muy_{t-1}, with the integration of classifier gradient
     # First strategy: Adjust to MEAN actively, meaning that adjust to Score - use for DDPM
     def condition_mean(self, cond_fn, p_mean_var, x, t, update=None, model_kwargs=None):
@@ -468,6 +468,8 @@ class GaussianDiffusion:
             return out, cfn  ### cfn is saliency
 
         else:
+            out = p_mean_var.copy()
+
             with th.enable_grad():
                 # Ensure cfn requires grad
                 cfn = cfn.clone().detach().requires_grad_(True)
@@ -484,17 +486,21 @@ class GaussianDiffusion:
 
                 for _ in range(20 - 1):
                     optimizer.zero_grad()
-
+                    
+                    ########### Choice 1: Use condition_score2 to estimate muy --> may not good ############
+                    '''
                     # Adjust eps
                     eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
-
                     # Predict new xstart
                     pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
-
                     # Compute new mean
                     mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
+                    '''
+                    ########### Choice 2: Like condition_mean #############
+                    mean = out["mean"] + out["variance"] * cfn
+                    
 
-                    logits = classifier(mean, timesteps=t - 1)
+                    logits = classifier(mean, timesteps = t-1)
 
                     loss1 = F.cross_entropy(logits, labels, reduction="none")
                     loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
