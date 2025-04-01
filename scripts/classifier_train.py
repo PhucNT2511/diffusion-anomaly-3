@@ -279,10 +279,10 @@ def main():
             logits_0 = model(sub_batch_0, sub_t_0)
             log_probs = F.log_softmax(logits_0, dim=-1)
             selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
-            print(selected.shape)
+
             a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
-            print(a.shape)
-            loss_centralization = th.abs(a - th.mean(a, dim=2))
+            mean_a = th.mean(a, dim=(2, 3), keepdim=True)
+            loss_centralization = th.abs(a - mean_a)
             print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             # Tổng loss: kết hợp loss phân loại và diversity loss
             loss = loss_cls + 0.1 * loss_centralization
