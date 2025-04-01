@@ -489,7 +489,7 @@ class GaussianDiffusion:
                     low=0, high=2, size=(x.shape[0],), device=x.device
                 )
 
-                lambda_eff = 1
+                lambda_eff = 100
 
                 for _ in range(20 - 1):
                     optimizer.zero_grad()
