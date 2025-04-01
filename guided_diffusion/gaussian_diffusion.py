@@ -512,8 +512,8 @@ class GaussianDiffusion:
                     loss1 = F.cross_entropy(logits, labels, reduction="none")
                     loss2 = th.mean(th.square(cfn), dim=(1, 2, 3))
 
-                    print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
-                    print(f"loss1: {loss1} - loss2: {loss2}")
+                    #print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
+                    #print(f"loss1: {loss1} - loss2: {loss2}")
                     loss = loss1.mean() + lambda_eff * loss2.mean()
 
                     # Check loss requires grad before backward
