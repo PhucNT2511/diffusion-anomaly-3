@@ -282,10 +282,10 @@ def main():
 
             a=th.autograd.grad(selected.sum(), sub_batch_0)[0]
             mean_a = th.mean(a, dim=(2, 3), keepdim=True)
-            loss_centralization = th.abs(a - mean_a)
+            loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
             print(f"loss_cls {loss_cls.shape} - loss_centralization {loss_centralization.shape}")
             # Tổng loss: kết hợp loss phân loại và diversity loss
-            loss = loss_cls + 0.1 * loss_centralization
+            loss = loss_cls + 100 * loss_centralization
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
