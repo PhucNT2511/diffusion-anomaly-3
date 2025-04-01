@@ -437,7 +437,8 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, t_set = [10,9,8,7,6,5,4,3,2,1]):
+    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, 
+                         t_set = [10,9,8,7,6,5,4,3,2,1], cond_fn2 = None):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -447,15 +448,14 @@ class GaussianDiffusion:
         """
         t = t.long()
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
-
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
 
-        ########### cfn is Refined Grad
-        a, cfn = cond_fn(
-            x, self._scale_timesteps(t).long(), **model_kwargs
-        )
-
         if (classifier is None) or (t[0] not in t_set):
+            ########### cfn is Refined Grad
+            a, cfn = cond_fn(
+                x, self._scale_timesteps(t).long(), **model_kwargs
+            )
+
             ######### Use refined grad - Unlike condition mean, we adjust in noise
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
@@ -469,7 +469,14 @@ class GaussianDiffusion:
 
         else:
             out = p_mean_var.copy()
-
+            if cond_fn2 is not None:
+                a, cfn = cond_fn2(
+                    x, self._scale_timesteps(t).long(), **model_kwargs
+                )
+            else:
+                a, cfn = cond_fn(
+                    x, self._scale_timesteps(t).long(), **model_kwargs
+                )
             with th.enable_grad():
                 # Ensure cfn requires grad
                 cfn = cfn.clone().detach().requires_grad_(True)
@@ -504,6 +511,9 @@ class GaussianDiffusion:
 
                     loss1 = F.cross_entropy(logits, labels, reduction="none")
                     loss2 = th.sum(th.square(cfn), dim=tuple(range(1, cfn.ndim)))
+
+                    print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
+                    print(f"loss1: {loss1} - loss2: {loss2}")
                     loss = loss1.mean() + lambda_eff * loss2.mean()
 
                     # Check loss requires grad before backward
@@ -513,6 +523,9 @@ class GaussianDiffusion:
                     loss.backward()
                     optimizer.step()
 
+                #####  Sau khi điều chỉnh xong mới nên nhân thêm norm(cls_x0)
+                cfn = cfn * model_kwargs['mask'][:, None, :, :] 
+                
                 # Update final eps
                 eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
 
