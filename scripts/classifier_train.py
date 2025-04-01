@@ -265,6 +265,9 @@ def main():
             #
             logits = model(sub_batch, timesteps=sub_t)         
             loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
+
+            print("loss_cls.requires_grad:", loss_cls.requires_grad)
+            print("sub_batch.requires_grad:", sub_batch.requires_grad)
             
             # Tính diversity loss trên các tầng Conv2d đã chọn:
             '''
