@@ -271,7 +271,7 @@ def main():
 
             ### Tính loss túm tụm
             classes = th.randint(
-                low=0, high=1, size=(sub_batch_0.shape[0],), device=sub_batch_0.dev()
+                low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev()
             )
             t_0 = th.zeros(sub_batch_0.shape[0], dtype=th.long, device=dist_util.dev())
             logits_0 = model(sub_batch_0, t_0)
