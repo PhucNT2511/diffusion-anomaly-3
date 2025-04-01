@@ -286,6 +286,7 @@ def main():
                 loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
 
             print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
+            print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
             loss = loss_cls + 100 * loss_centralization
 
