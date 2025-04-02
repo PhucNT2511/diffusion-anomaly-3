@@ -249,7 +249,7 @@ def main():
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
             #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
-            max_L_minus_t_scale_1000 = ((1000 - t) / 1000).to(t.dtype).to(t.device)
+            max_L_minus_t = (1000 - t).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
@@ -261,8 +261,8 @@ def main():
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t_scale_1000) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t_scale_1000)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
@@ -294,7 +294,7 @@ def main():
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = (loss_cls + loss_centralization) * sub_max_L_minus_t_scale_1000  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = (loss_cls + loss_centralization) * sub_max_L_minus_t  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             #+ 10 * loss_centralization#
 
