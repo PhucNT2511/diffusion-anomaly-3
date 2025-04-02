@@ -248,7 +248,8 @@ def main():
         batch_0 = batch
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
+            #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
+            max_L_minus_t_scale_1000 = ((1000 - t) / 1000).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
@@ -260,8 +261,8 @@ def main():
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t_square) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t_square)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t_scale_1000) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t_scale_1000)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
@@ -293,7 +294,7 @@ def main():
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = (loss_cls + loss_centralization) * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = (loss_cls + loss_centralization) * sub_max_L_minus_t_scale_1000  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             #+ 10 * loss_centralization#
 
@@ -359,7 +360,7 @@ def main():
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
-                    forward_backward_log(val_datal, val_data, prefix="val")
+                    #forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
                     wandb.log({
                         "step": step + resume_step,

@@ -159,9 +159,8 @@ class TrainLoop:
             )
             self.opt.load_state_dict(state_dict)
 
+    ### Default, train DDPM by CFG first (includes None, 0, 1)
     def run_loop(self):
-        i = 0
-
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
@@ -176,7 +175,7 @@ class TrainLoop:
                 batch, cond = next(self.datal)
                 cond.pop("path", None)
 
-            self.run_step(batch, cond)
+            self.run_step(batch, cond) ##########
 
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()

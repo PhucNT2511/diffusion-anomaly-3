@@ -81,7 +81,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         lr_anneal_steps=0,
-        batch_size=1,
+        batch_size=5,
         microbatch=-1,  # -1 disables microbatches
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=10,
@@ -91,7 +91,7 @@ def create_argparser():
         fp16_scale_growth=1e-3,
         dataset='brats',
         max_L=1000,
-        fold=1
+        fold=2
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
