@@ -248,7 +248,8 @@ def main():
         batch_0 = batch
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
+            max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
+            # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
@@ -259,8 +260,8 @@ def main():
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t_square) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t_square)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
@@ -273,8 +274,9 @@ def main():
             for lname, layer_module in layers_to_finetune[:1]:
                 loss_div = loss_div + diversity_loss(layer_module)
             '''
-
+            
             ### Tính loss túm tụm
+            '''
             with th.enable_grad():     
                 sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
                 logits_0 = model(sub_batch_0, sub_t_0)
@@ -284,11 +286,14 @@ def main():
                 a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
                 mean_a = th.mean(a, dim=(2, 3), keepdim=True)
                 loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
+            '''
 
             #print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             #print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
-            loss = loss_cls + 10 * loss_centralization
+
+             
+            loss = loss_cls * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
@@ -434,7 +439,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=4,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
