@@ -293,7 +293,7 @@ def main():
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = (loss_cls + 10 * loss_centralization) * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = (loss_cls + loss_centralization) * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             #+ 10 * loss_centralization#
 
