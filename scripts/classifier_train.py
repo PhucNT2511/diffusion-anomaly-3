@@ -170,7 +170,7 @@ def main():
         val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
         val_datal = th.utils.data.DataLoader(
             val_ds,
-            batch_size=32,
+            batch_size= args.batch_size,
             shuffle=True)
         val_data = iter(val_datal)
     except:
