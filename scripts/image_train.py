@@ -86,7 +86,7 @@ def main():
         diffusion=diffusion,
         data=data,
         batch_size=args.batch_size,
-        class_cond=args.class_cond,
+        class_cond=args.class_cond,  ### False
         image_size=args.image_size,
         microbatch=args.microbatch,
         lr=args.lr,
@@ -108,9 +108,9 @@ def create_argparser():
         experiment_name='test',
         schedule_sampler="uniform",
         lr=1e-4,
-        weight_decay=0.05,
+        weight_decay=0.0,
         lr_anneal_steps=0,
-        batch_size=16,
+        batch_size=5,
         microbatch=-1,  # -1 disables microbatches
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=10,

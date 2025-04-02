@@ -173,16 +173,18 @@ class TrainLoop:
             batch, cond, _,_ = next(self.data)
             count = None
 
-            if self.class_cond==False:
+            
+            if self.class_cond==False: ### ở đây default là false, đang sửa thành True
                 cond = None
 
 
-            self.run_step(batch, cond, count)
+            self.run_step(batch, cond, count) ############# 
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
                 self.save()
 
+                ### Dưới này chỉ là làm màu mà thôi --> vẽ ra
                 all_images = []
                 all_images_img = []
                 all_labels = []

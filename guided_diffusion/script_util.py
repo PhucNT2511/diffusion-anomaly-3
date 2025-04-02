@@ -54,7 +54,7 @@ def model_and_diffusion_defaults():
         attention_resolutions="32,16,8",
         channel_mult="",
         dropout=0.0,
-        class_cond=False,
+        class_cond=False, ### Chỉ train trên ảnh healthy --> false là đúng, của mình có cả true và false --> CFG
         use_checkpoint=False,
         use_scale_shift_norm=True,
         resblock_updown=True,
