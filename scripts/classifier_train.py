@@ -53,9 +53,9 @@ def diversity_loss(conv_layer):
 
 def main():
 
-    ##
-    classifier_scale = 100
+    ## 
     '''
+    classifier_scale = 100
     def cond_fn(x_0, classifier, t, y=None):
         assert y is not None
         with th.enable_grad():
@@ -152,7 +152,7 @@ def main():
         ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
         datal = th.utils.data.DataLoader(
             ds,
-            batch_size=args.batch_size,
+            batch_size=32,
             shuffle=True)
         data = iter(datal)
 
