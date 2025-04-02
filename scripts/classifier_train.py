@@ -248,7 +248,7 @@ def main():
         batch_0 = batch
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            max_L_minus_t_square = (((1000 - t)/1000) ** 2).to(t.dtype).to(t.device)
+            max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
@@ -276,7 +276,7 @@ def main():
             '''
             
             ### Tính loss túm tụm
-            '''
+            
             with th.enable_grad():     
                 sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
                 logits_0 = model(sub_batch_0, sub_t_0)
@@ -286,14 +286,14 @@ def main():
                 a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
                 mean_a = th.mean(a, dim=(2, 3), keepdim=True)
                 loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
-            '''
+            
 
             #print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             #print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = loss_cls * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = (loss_cls + 10 * loss_centralization) * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             #+ 10 * loss_centralization#
 
