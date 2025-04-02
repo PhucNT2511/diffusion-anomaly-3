@@ -248,7 +248,7 @@ def main():
         batch_0 = batch
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
+            max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
@@ -260,8 +260,8 @@ def main():
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t_square) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t_square)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
@@ -293,7 +293,9 @@ def main():
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = loss_cls + 100 * loss_centralization  #* sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = loss_cls * sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+
+            #+ 100 * loss_centralization  #
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
@@ -434,12 +436,12 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=False, ############################################
+        noised=True, ############################################
         iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=4,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
