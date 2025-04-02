@@ -293,7 +293,7 @@ def main():
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = loss_cls + 100 * loss_centralization  #* sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = loss_cls + 10 * loss_centralization  #* sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
@@ -434,7 +434,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=False, ############################################
+        noised=True, ############################################
         iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
