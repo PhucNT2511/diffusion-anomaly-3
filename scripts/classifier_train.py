@@ -152,7 +152,7 @@ def main():
         ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
         datal = th.utils.data.DataLoader(
             ds,
-            batch_size=32,
+            batch_size=args.batch_size,
             shuffle=True)
         data = iter(datal)
 
@@ -170,7 +170,7 @@ def main():
         val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
         val_datal = th.utils.data.DataLoader(
             val_ds,
-            batch_size=args.batch_size,
+            batch_size=32,
             shuffle=True)
         val_data = iter(val_datal)
     except:
@@ -293,7 +293,7 @@ def main():
             # Tổng loss: kết hợp loss phân loại và diversity loss
 
              
-            loss = loss_cls + 10 * loss_centralization  #* sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = loss_cls + 100 * loss_centralization  #* sub_max_L_minus_t_square  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
@@ -434,11 +434,11 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=True, ############################################
+        noised=False, ############################################
         iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
-        anneal_lr=False,
+        anneal_lr=True,
         batch_size=4,
         microbatch=-1,
         schedule_sampler="uniform",
