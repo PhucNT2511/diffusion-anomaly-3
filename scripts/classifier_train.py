@@ -288,7 +288,7 @@ def main():
             #print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             #print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
-            loss = loss_cls + 100 * loss_centralization
+            loss = loss_cls + 10 * loss_centralization
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
@@ -429,7 +429,7 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         val_data_dir="",
-        noised=False, ############################################
+        noised=True, ############################################
         iterations= 100001, # must be more than step from checkpoint
         lr=1e-4,
         weight_decay=0.0,
