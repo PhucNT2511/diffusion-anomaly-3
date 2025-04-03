@@ -514,8 +514,8 @@ class GaussianDiffusion:
                         raise RuntimeError("Loss does not require grad!")
 
                     # Tính riêng gradient của loss_cls và loss_reg đối với delta_cfn
-                    grad_cls = th.autograd.grad(lambda_eff * loss_cls.mean(), delta_cfn, retain_graph=True)[0]
-                    grad_reg = th.autograd.grad(loss_reg.mean(), delta_cfn)[0]
+                    grad_reg = th.autograd.grad(loss_reg.mean(), delta_cfn, retain_graph=True)[0]
+                    grad_cls = th.autograd.grad(lambda_eff * loss_cls.mean(), delta_cfn)[0]
                     print("Grad norm từ loss_cls:", grad_cls.norm().item())
                     print("Grad norm từ loss_reg:", grad_reg.norm().item())
 
