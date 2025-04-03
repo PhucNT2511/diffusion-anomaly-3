@@ -487,6 +487,11 @@ class GaussianDiffusion:
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
                 lambda_eff = 1e6  # Hệ số regularization cho delta
 
+                for name, param in model.named_parameters():
+                    if param.requires_grad:
+                        print(name)
+
+
                 for _ in range(20):
                     print('delta_cfn: ',delta_cfn.unique())
                     print(f'delta_cfn.requires_grad {delta_cfn.requires_grad}')
