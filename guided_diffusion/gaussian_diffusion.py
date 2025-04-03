@@ -545,7 +545,7 @@ class GaussianDiffusion:
                     mean = out["mean"] + out["variance"] * new_cfn
 
                     logits_new = classifier(mean, timesteps=t-1) 
-                    loss_cls = F.cross_entropy(logits_new, labels)
+                    loss_cls = F.cross_entropy(logits_new, labels,reduction='none')
 
                     '''
                     Khi muốn cls phân loại tốt hơn đối với x_{t-1}
@@ -560,9 +560,10 @@ class GaussianDiffusion:
                     '''
 
                     # Regularization: giảm thiểu giá trị delta (điều chỉnh)
-                    loss_reg = th.mean(th.square(delta_cfn))
+                    loss_reg = th.mean(th.square(delta_cfn), dim=(1, 2, 3))
+
                     print(f'loss_reg: {loss_reg} - loss_cls: {loss_cls}')
-                    loss = loss_cls + lambda_eff * loss_reg
+                    loss = loss_cls.mean() + lambda_eff * loss_reg.mean()
 
                     if not loss.requires_grad:
                         raise RuntimeError("Loss does not require grad!")
@@ -571,7 +572,7 @@ class GaussianDiffusion:
                     optimizer.step()
                 
                 cfn = cfn + delta_cfn.detach()
-                
+
                 #####  Sau khi điều chỉnh xong mới nên nhân thêm norm(cls_x0)
                 cfn = cfn * model_kwargs['mask'][:, None, :, :] 
 
