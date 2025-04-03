@@ -485,16 +485,16 @@ class GaussianDiffusion:
                 optimizer = th.optim.AdamW([delta_cfn], lr=0.1)
 
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
-                lambda_eff = 1e6  # Hệ số regularization cho delta
+                lambda_eff = 1e-3  # 
 
                 for _ in range(20):
                     print('delta_cfn: ',delta_cfn.unique())
-                    print(f'delta_cfn.requires_grad {delta_cfn.requires_grad}')
-
                     optimizer.zero_grad()
                     
                     # Tính toán cfn mới dựa trên delta: giữ nguyên cfn ban đầu, chỉ cộng thêm điều chỉnh delta
                     new_cfn = cfn + delta_cfn
+                    print('new_cfn: ',new_cfn.unique())
+
                     # Cập nhật mean theo new_cfn
                     mean = out["mean"] + out["variance"] * new_cfn
 
@@ -517,9 +517,9 @@ class GaussianDiffusion:
                     loss_reg = th.mean(th.square(delta_cfn), dim=(1, 2, 3))
 
                     print(f'loss_reg: {loss_reg} - loss_cls: {loss_cls}')
-                    print(f'loss_reg: {loss_reg.requires_grad} - loss_cls: {loss_cls.requires_grad}')
+                    #print(f'loss_reg: {loss_reg.requires_grad} - loss_cls: {loss_cls.requires_grad}')
 
-                    loss = loss_cls.mean() #+ lambda_eff * loss_reg.mean()
+                    loss = lambda_eff * loss_cls.mean()  +  loss_reg.mean()
 
                     if not loss.requires_grad:
                         raise RuntimeError("Loss does not require grad!")
