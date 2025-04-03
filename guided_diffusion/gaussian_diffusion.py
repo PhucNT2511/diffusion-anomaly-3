@@ -481,7 +481,7 @@ class GaussianDiffusion:
                 ##### Cách này đang muốn sự thay đổi nhỏ cho cfn trong khi vẫn dự đoán chính xác hơn
                 # Giả sử cfn ban đầu không thay đổi, ta chỉ học delta (điều chỉnh)
                 delta_cfn = th.zeros_like(cfn, requires_grad=True)
-                optimizer = th.optim.AdamW([delta_cfn], lr=0.1)
+                optimizer = th.optim.AdamW([delta_cfn], lr=0.001)
 
                 # Sinh ngẫu nhiên nhãn cho batch (chú ý: randint(low, high) tạo các giá trị từ low đến high-1)
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
