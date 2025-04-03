@@ -487,7 +487,7 @@ class GaussianDiffusion:
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
                 lambda_eff = 1e6  # Hệ số regularization cho delta
 
-                for name, param in model.named_parameters():
+                for name, param in classifier.named_parameters():
                     if param.requires_grad:
                         print(name)
 
