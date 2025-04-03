@@ -482,7 +482,7 @@ class GaussianDiffusion:
                 ##### Cách này đang muốn sự thay đổi nhỏ cho cfn trong khi vẫn dự đoán chính xác hơn
                 # Giả sử cfn ban đầu không thay đổi, ta chỉ học delta (điều chỉnh)
                 delta_cfn = th.zeros_like(cfn, requires_grad=True)
-                optimizer = th.optim.Adam([delta_cfn], lr=0.001)
+                optimizer = th.optim.Adam([delta_cfn], lr=0.1)
 
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
                 lambda_eff = 1e6  # Hệ số regularization cho delta
