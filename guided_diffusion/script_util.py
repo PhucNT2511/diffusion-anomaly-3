@@ -181,7 +181,7 @@ def create_model(
         image_size=image_size,
         in_channels=number_in_channels,
         model_channels=num_channels,
-        out_channels=2*number_in_channels,#12,#(3 if not learn_sigma else 6),
+        out_channels=2*number_in_channels,#(8)  #(for camelyon 3 if not learn_sigma else 6),
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
