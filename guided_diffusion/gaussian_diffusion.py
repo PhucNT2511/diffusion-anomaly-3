@@ -563,6 +563,8 @@ class GaussianDiffusion:
                     loss_reg = th.mean(th.square(delta_cfn), dim=(1, 2, 3))
 
                     print(f'loss_reg: {loss_reg} - loss_cls: {loss_cls}')
+                    print(f'loss_reg: {loss_reg.requires_grad} - loss_cls: {loss_cls.requires_grad}')
+
                     loss = loss_cls.mean() + lambda_eff * loss_reg.mean()
 
                     if not loss.requires_grad:
