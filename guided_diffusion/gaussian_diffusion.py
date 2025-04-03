@@ -485,7 +485,7 @@ class GaussianDiffusion:
 
                 # Sinh ngẫu nhiên nhãn cho batch (chú ý: randint(low, high) tạo các giá trị từ low đến high-1)
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
-                lambda_eff = 1e-3  # Hệ số cân bằng giữa loss_cls và loss_reg
+                lambda_eff = 1e3  # Hệ số cân bằng giữa loss_cls và loss_reg
 
                 for _ in range(20):
                     print('delta_cfn (unique): ', delta_cfn.unique())
@@ -514,13 +514,15 @@ class GaussianDiffusion:
                         raise RuntimeError("Loss does not require grad!")
 
                     # Tính riêng gradient của loss_cls và loss_reg đối với delta_cfn
+                    '''
                     grad_reg = th.autograd.grad(loss_reg.mean(), delta_cfn, retain_graph=True)[0]
                     grad_cls = th.autograd.grad(lambda_eff * loss_cls.mean(), delta_cfn)[0]
                     print("Grad norm từ loss_cls:", grad_cls.norm().item())
                     print("Grad norm từ loss_reg:", grad_reg.norm().item())
+                    '''
 
                     # Thực hiện backward cho loss tổng và cập nhật delta_cfn
-                    #loss.backward()
+                    loss.backward()
                     optimizer.step()
 
                 # Cập nhật cfn với delta_cfn đã được điều chỉnh
