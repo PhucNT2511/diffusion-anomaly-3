@@ -478,64 +478,61 @@ class GaussianDiffusion:
                     x, self._scale_timesteps(t).long(), **model_kwargs
                 )
             with th.enable_grad():
- 
                 ##### Cách này đang muốn sự thay đổi nhỏ cho cfn trong khi vẫn dự đoán chính xác hơn
                 # Giả sử cfn ban đầu không thay đổi, ta chỉ học delta (điều chỉnh)
                 delta_cfn = th.zeros_like(cfn, requires_grad=True)
                 optimizer = th.optim.AdamW([delta_cfn], lr=0.1)
 
+                # Sinh ngẫu nhiên nhãn cho batch (chú ý: randint(low, high) tạo các giá trị từ low đến high-1)
                 labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
-                lambda_eff = 1e-3  # 
+                lambda_eff = 1e-3  # Hệ số cân bằng giữa loss_cls và loss_reg
 
                 for _ in range(20):
-                    print('delta_cfn: ',delta_cfn.unique())
+                    print('delta_cfn (unique): ', delta_cfn.unique())
                     optimizer.zero_grad()
-                    
-                    # Tính toán cfn mới dựa trên delta: giữ nguyên cfn ban đầu, chỉ cộng thêm điều chỉnh delta
+
+                    # Tính toán cfn mới dựa trên delta: giữ nguyên cfn ban đầu, chỉ cộng thêm delta
                     new_cfn = cfn + delta_cfn
-                    print('new_cfn: ',new_cfn.unique())
+                    print('new_cfn (unique): ', new_cfn.unique())
 
                     # Cập nhật mean theo new_cfn
                     mean = out["mean"] + out["variance"] * new_cfn
 
-                    logits_new = classifier(mean, timesteps=t-1) 
-                    loss_cls = F.cross_entropy(logits_new, labels,reduction='none')
-
-                    '''
-                    Khi muốn cls phân loại tốt hơn đối với x_{t-1}
-                    logits_old = classifier(out["mean"], timesteps=t-1)
-
-                    # Cross entropy loss
-                    loss_ce_new = F.cross_entropy(logits_new, labels)
-                    loss_ce_old = F.cross_entropy(logits_old, labels)
-
-                    # Hinge Loss: max(0, 1 + loss_ce_old - loss_ce_new)
-                    loss_cls = F.relu(margin + loss_ce_new - loss_ce_old)
-                    '''
+                    # Tính toán logits từ classifier
+                    logits_new = classifier(mean, timesteps=t-1)
+                    loss_cls = F.cross_entropy(logits_new, labels, reduction='none')
 
                     # Regularization: giảm thiểu giá trị delta (điều chỉnh)
                     loss_reg = th.mean(th.square(delta_cfn), dim=(1, 2, 3))
 
                     print(f'loss_reg: {loss_reg} - loss_cls: {loss_cls}')
-                    #print(f'loss_reg: {loss_reg.requires_grad} - loss_cls: {loss_cls.requires_grad}')
 
-                    loss = lambda_eff * loss_cls.mean()  +  loss_reg.mean()
+                    # Tính tổng loss: loss_cls trung bình nhân lambda_eff cộng với loss_reg trung bình
+                    loss = lambda_eff * loss_cls.mean() + loss_reg.mean()
 
                     if not loss.requires_grad:
                         raise RuntimeError("Loss does not require grad!")
 
+                    # Tính riêng gradient của loss_cls và loss_reg đối với delta_cfn
+                    grad_cls = th.autograd.grad(lambda_eff * loss_cls.mean(), delta_cfn, retain_graph=True)[0]
+                    grad_reg = th.autograd.grad(loss_reg.mean(), delta_cfn)[0]
+                    print("Grad norm từ loss_cls:", grad_cls.norm().item())
+                    print("Grad norm từ loss_reg:", grad_reg.norm().item())
+
+                    # Thực hiện backward cho loss tổng và cập nhật delta_cfn
                     loss.backward()
                     optimizer.step()
-                
+
+                # Cập nhật cfn với delta_cfn đã được điều chỉnh
                 cfn = cfn + delta_cfn.detach()
 
-                #####  Sau khi điều chỉnh xong mới nên nhân thêm norm(cls_x0)
-                cfn = cfn * model_kwargs['mask'][:, None, :, :] 
+                ##### Sau khi điều chỉnh xong, nhân thêm norm(cls_x0) nếu cần (ở đây nhân với mask)
+                cfn = cfn * model_kwargs['mask'][:, None, :, :]
 
                 # Update final eps
                 eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
 
-                # Create new output dictionary
+                # Tạo dictionary output mới
                 out = p_mean_var.copy()
                 out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
                 out["mean"], _, _ = self.q_posterior_mean_variance(
@@ -543,6 +540,7 @@ class GaussianDiffusion:
                 )
 
                 return out, cfn.detach()
+
 
                 '''
                 Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
