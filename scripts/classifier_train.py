@@ -247,7 +247,8 @@ def main():
         masks = masks.to(dist_util.dev())
         batch_0 = batch
         if args.noised:
-            t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
+            #t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
+            t = th.full((batch.shape[0],), 498, dtype=th.long, device=dist_util.dev())   ##### Tại 498
             #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
             max_L_minus_t = (1000 - t).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
@@ -277,7 +278,7 @@ def main():
             '''
             
             ### Tính loss túm tụm
-            
+            '''
             with th.enable_grad():     
                 sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
                 logits_0 = model(sub_batch_0, sub_t_0)
@@ -292,11 +293,14 @@ def main():
             #print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             #print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
-
+            
              
             loss = (loss_cls + loss_centralization) * sub_max_L_minus_t  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
 
             #+ 10 * loss_centralization#
+            '''
+
+            loss = loss_cls
 
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
@@ -442,7 +446,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=8,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
