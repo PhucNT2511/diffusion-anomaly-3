@@ -248,7 +248,7 @@ def main():
         batch_0 = batch
         if args.noised:
             #t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            t = th.full((batch.shape[0],), 498, dtype=th.long, device=dist_util.dev())   ##### Tại 498
+            t = th.full((batch.shape[0],), args.max_L - 2, dtype=th.long, device=dist_util.dev())   ##### Tại 1000 - 2= 998
             #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
             max_L_minus_t = (1000 - t).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
