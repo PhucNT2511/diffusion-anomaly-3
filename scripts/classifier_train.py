@@ -222,7 +222,7 @@ def main():
     # ---------------------------------------------
      # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
     lambda_div = 0.1 
-
+    '''
     # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
     layers_to_finetune = []
     for name, module in model.module.named_modules():
@@ -233,7 +233,34 @@ def main():
     for name, _ in layers_to_finetune[:1]:
         print(name)
     # ---------------------------------------------
-    
+    '''
+    def patch_average_replace(a: torch.Tensor, patch_size: int = 16):
+        """
+        Replace each patch (patch_size x patch_size) in (B, C, H, W)
+        with its average. Handles non-divisible H/W by padding.
+        """
+        device = a.device  # Ensure everything stays on the same device
+        B, C, H, W = a.shape
+        pad_h = (patch_size - H % patch_size) % patch_size
+        pad_w = (patch_size - W % patch_size) % patch_size
+
+        a_padded = F.pad(a, (0, pad_w, 0, pad_h), mode='reflect')  # Safe, keeps device
+        H_pad, W_pad = a_padded.shape[2], a_padded.shape[3]
+
+        a_reshaped = a_padded.view(B, C, H_pad // patch_size, patch_size, W_pad // patch_size, patch_size)
+        a_reshaped = a_reshaped.permute(0, 1, 2, 4, 3, 5)  # (B, C, H//p, W//p, p, p)
+
+        patch_mean = a_reshaped.mean(dim=(-1, -2), keepdim=True)  # shape: (B, C, H//p, W//p, 1, 1)
+
+        patches_with_mean = patch_mean.expand(-1, -1, -1, -1, patch_size, patch_size)
+
+        out = patches_with_mean.permute(0, 1, 2, 4, 3, 5).contiguous()
+        out = out.view(B, C, H_pad, W_pad)
+
+        out = out[:, :, :H, :W]  # Remove padding
+
+        return out
+
     def forward_backward_log(data_load, data_loader, prefix="train"):
         try:
             batch, _, labels, masks = next(data_loader)
@@ -247,10 +274,10 @@ def main():
         masks = masks.to(dist_util.dev())
         batch_0 = batch
         if args.noised:
-            #t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            t = th.full((batch.shape[0],), args.max_L - 2, dtype=th.long, device=dist_util.dev())   ##### Tại 1000 - 2= 998
+            t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
+            #t = th.full((batch.shape[0],), args.max_L - 2, dtype=th.long, device=dist_util.dev())   ##### Tại 1000 - 2= 998
             #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
-            max_L_minus_t = (1000 - t).to(t.dtype).to(t.device)
+            #max_L_minus_t = (1000 - t).to(t.dtype).to(t.device)
             # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
@@ -262,8 +289,8 @@ def main():
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         ############################################################### Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_max_L_minus_t) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, max_L_minus_t)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
@@ -278,7 +305,7 @@ def main():
             '''
             
             ### Tính loss túm tụm
-            '''
+            
             with th.enable_grad():     
                 sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
                 logits_0 = model(sub_batch_0, sub_t_0)
@@ -286,19 +313,19 @@ def main():
                 selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
 
                 a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
-                mean_a = th.mean(a, dim=(2, 3), keepdim=True)
+                mean_a = patch_average_replace(a)
                 loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
             
 
-            #print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
-            #print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
+            print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
+            print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
             
              
-            loss = (loss_cls + loss_centralization) * sub_max_L_minus_t  ### Sẽ chú ý phân loại đúng những cái ở đầu hơn
+            loss = loss_cls + loss_centralization * lambda_div
 
             #+ 10 * loss_centralization#
-            '''
+            
 
             loss = loss_cls
 
@@ -528,4 +555,12 @@ def forward_backward_log(data_load, data_loader, prefix="train"):
          
             loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask_0, sub_masks, reduction="mean")
 
+'''
+
+
+
+'''
+2 kịch bản:
+ + Thiết kế train few-shot, cần phải chọn ra một vài tầm 100 mẫu đã có đủ annotation, train hy vọng sẽ làm cải thiện.
+ + Train theo kiểu đạo hàm trên ảnh ban đầu khi tách ra thành các patch nên về giá trị trung bình của nó.
 '''
