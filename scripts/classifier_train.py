@@ -473,7 +473,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=32,
+        batch_size=8,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
