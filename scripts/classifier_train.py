@@ -234,7 +234,7 @@ def main():
         print(name)
     # ---------------------------------------------
     '''
-    def patch_average_replace(a: th.Tensor, patch_size: int = 4):
+    def patch_average_replace(a: th.Tensor, patch_size: int = 16):
         """
         Replace each patch (patch_size x patch_size) in (B, C, H, W)
         with its average. Handles non-divisible H/W by padding.
@@ -323,8 +323,6 @@ def main():
             
              
             loss = loss_cls + loss_centralization * lambda_div
-
-            #+ 10 * loss_centralization#
             
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
