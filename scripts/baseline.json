@@ -7,7 +7,7 @@
     "resume": false,
     "save": 1,
     "save_images": 0,
-    "num_gpus_to_use": 2,
+    "num_gpus_to_use": 1,
     "optim": "adam",
     "learning_rate": 3e-4,
     "scheduler": "CosineAnnealing",
