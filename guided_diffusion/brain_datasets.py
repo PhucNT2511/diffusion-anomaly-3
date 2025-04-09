@@ -122,8 +122,8 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         self.transform = transform
 
         data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/data_split.npy', allow_pickle=True)
-        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats21_set_1.csv') ### set_1 ... set_5, tương ứng với 15k, ..., 131k
-        volume_ids = data_split.item()['dataset_15k'][f'train_fold_{fold}']
+        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats21_set_5.csv') ### set_1 ... set_5, tương ứng với 15k, ..., 131k
+        volume_ids = data_split.item()['dataset_131k'][f'train_fold_{fold}']
         
         ############## Cần dẫn link cho 2 nhóm, một nhóm toàn link positive, 1 nhóm toàn link negative. Hoặc dùng chung nhưng phải có lable
         if self.only_positive:
