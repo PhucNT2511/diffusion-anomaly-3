@@ -122,7 +122,7 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         self.transform = transform
 
         data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/data_split.npy', allow_pickle=True)
-        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats21_set_1.csv')
+        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats21_set_1.csv') ### set_1 ... set_5, tương ứng với 15k, ..., 131k
         volume_ids = data_split.item()['dataset_15k'][f'train_fold_{fold}']
         
         ############## Cần dẫn link cho 2 nhóm, một nhóm toàn link positive, 1 nhóm toàn link negative. Hoặc dùng chung nhưng phải có lable
@@ -137,7 +137,7 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         return len(self.datapaths)
 
     def __getitem__(self, idx): ## item vẫn là idx
-        
+
         data = np.load(self.datapaths[idx])
         image = data['image'].astype(np.float32)
         for i in range(image.shape[0]):
