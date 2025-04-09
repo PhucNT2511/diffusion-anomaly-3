@@ -326,9 +326,6 @@ def main():
 
             #+ 10 * loss_centralization#
             
-
-            loss = loss_cls
-
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
             losses[f"{prefix}_acc@1"] = compute_top_k(
