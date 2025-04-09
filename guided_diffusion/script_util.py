@@ -13,7 +13,7 @@ def diffusion_defaults():
     Defaults for image and classifier training.
     """
     return dict(
-        learn_sigma=False,
+        learn_sigma=True,
         diffusion_steps=1000,
         noise_schedule="linear",
         timestep_respacing="",
@@ -132,7 +132,7 @@ def create_model(
     num_channels,
     num_res_blocks,
     channel_mult="",
-    learn_sigma=False,
+    learn_sigma=True,
     class_cond=False,
     use_checkpoint=False,
     attention_resolutions="16",
@@ -167,7 +167,7 @@ def create_model(
         image_size=image_size,
         in_channels=4,
         model_channels=num_channels,
-        out_channels=4,
+        out_channels=(8 if learn_sigma else 4),
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
@@ -387,7 +387,7 @@ def sr_create_model(
 def create_gaussian_diffusion(
     *,
     steps=1000,
-    learn_sigma=False,
+    learn_sigma=True,
     sigma_small=False,
     noise_schedule="linear",
     use_kl=False,

@@ -1,18 +1,17 @@
 {
-    "batch_size": 5,
-    "eval_batch_size": 5,
+    "batch_size": 64,
+    "eval_batch_size": 64,
     "max_epochs": 200,
     "seed": 1,
     "logs_path": "log",
     "resume": false,
     "save": 1,
     "save_images": 0,
-    "num_gpus_to_use": 1,
+    "num_gpus_to_use": 2,
     "optim": "adam",
-    "learning_rate": 1e-4,
+    "learning_rate": 3e-4,
     "scheduler": "CosineAnnealing",
     "lr_min": 1.0000000000000001e-07,
-    "weight_decay": 0,
-    "momentum": 0.9,
-    "fold": 1
+    "weight_decay": 5e-05,
+    "momentum": 0.9
 }

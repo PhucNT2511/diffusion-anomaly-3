@@ -33,6 +33,12 @@ def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
         image = normalize(image)
     return image
 
+def min_max_scaler(image):
+    return (image - image.min()) / image.max()
+
+def binarize(img):
+    return np.where(img > 0, 1.0, 0.0)
+
 class BRATSDataset(torch.utils.data.Dataset):
     def __init__(self, 
                  mode="train", 
@@ -71,11 +77,12 @@ class BRATSDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         data = np.load(self.datapaths[idx])
-        image = data['image']
-        image = image[[1, 2, 3, 0], :, :]
+        image = data['image'].astype(np.float32)
         for i in range(image.shape[0]):
-            image[i] = irm_min_max_preprocess(image[i])
-        mask = data['mask']
+            if np.sum(image[i]) > 0:
+                image[i] = min_max_scaler(image[i])
+            
+        mask = data['mask'].astype(np.float32)
 
         padding_image = np.zeros((4, 256, 256))
         padding_image[:, 8:-8, 8:-8] = image
@@ -83,12 +90,13 @@ class BRATSDataset(torch.utils.data.Dataset):
         padding_mask[8:-8, 8:-8] = mask
         if np.sum(mask) > 0:
             label = 1
-            mask = normalize(mask)
+            mask = binarize(mask)
         else:
             label = 0
 
         if self.transforms:
             padding_image = self.transforms(torch.Tensor(padding_image))
+
         return torch.tensor(padding_image, dtype= torch.float32), label, torch.tensor(padding_mask, dtype = torch.float32), self.datapaths[idx]
 
     def __len__(self):
@@ -129,25 +137,27 @@ class BRATSDatasetSaliency(torch.utils.data.Dataset):
         return len(self.datapaths)
 
     def __getitem__(self, idx): ## item vẫn là idx
-
+        
         data = np.load(self.datapaths[idx])
-        image = data['image']
-        image = image[[1, 2, 3, 0], :, :]
+        image = data['image'].astype(np.float32)
         for i in range(image.shape[0]):
-            image[i] = irm_min_max_preprocess(image[i])
-        mask = data['mask']
+            if np.sum(image[i]) > 0:
+                image[i] = min_max_scaler(image[i])
+            
+        mask = data['mask'].astype(np.float32)
+
         padding_image = np.zeros((4, 256, 256))
         padding_image[:, 8:-8, 8:-8] = image
         padding_mask = np.zeros((256, 256))
         padding_mask[8:-8, 8:-8] = mask
         if np.sum(mask) > 0:
             label = 1
-            mask = normalize(mask)
+            mask = binarize(mask)
         else:
             label = 0
 
-        if self.transform:
-            padding_image = self.transform(torch.Tensor(padding_image))
+        if self.transforms:
+            padding_image = self.transforms(torch.Tensor(padding_image))
 
         raw_sal = []
         for level in ['flair', 't1', 't2', 't1ce']:

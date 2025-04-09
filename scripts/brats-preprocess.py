@@ -1,96 +1,90 @@
-##############3 Mình ko cần tới cái file này vì mình đã padding rất oke rồi
+import pandas as pd
 import os
-import nibabel
 import torch
-import numpy as np
-from torchvision import datasets, models, transforms
+import torch.utils.data as data
 import imageio
-import skimage
+import numpy as np
+import torch.nn.functional as F
+import pickle
+from torchvision import datasets, models, transforms
 
-########### Ảnh 240x240 --> 256x256 (2*8 padding in each dimension)
-transform = transforms.Compose(
-    [
-        transforms.Pad(8) 
-    ]
-)
+def normalize(image):
+    """Basic min max scaler.
+    """
+    min_ = np.min(image)
+    max_ = np.max(image)
+    scale = max_ - min_
+    image = (image - min_) / scale
+    return image
 
-directory = 'data/brats2021'
+def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
+    """Main pre-processing function used for the challenge (seems to work the best).
+    Remove outliers voxels first, then min-max scale.
+    1% -- 99%
+    Warnings
+    --------
+    This will not do it channel wise!!
+    """
+
+    non_zeros = image > 0
+    if non_zeros.sum() > 0:
+        low, high = np.percentile(image[non_zeros], [low_perc, high_perc])
+        image = np.clip(image, low, high)
+        image = normalize(image)
+    return image
+
+def min_max_scaler(image):
+    return (image - image.min()) / image.max()
+
+def binarize(img):
+    return np.where(img > 0, 1.0, 0.0)
+    
+
+directory = ['brats21-dataset', 'brats21-dataset2']
 
 ############# 4 layers + groundtruth mask (seg)
-seqtypes = ['flair','t1', 't1ce', 't2', 'seg']
-seqtypes_set = set(seqtypes)
-database = []
-for root, dirs, files in os.walk(directory):
-    # if there are no subdirs, we have data
-    if not dirs:
-        files.sort()
-        datapoint = dict()
-        for f in files:
-            f = f[:-7]
-            seqtype = f.split('_')[2]
-            datapoint[seqtype] = os.path.join(root, f+'.nii.gz')
-        assert set(datapoint.keys()) == seqtypes_set, \
-            f'datapoint {f} is incomplete, keys are {datapoint.keys()}'
-        database.append(datapoint)
+###flair[k], t1[k], t1ce[k], t2[k] - my order
+###seqtypes = ['flair','t1', 't1ce', 't2', 'seg']
 
-############# load dữ liệu cả 4 layers + seg 
-def load_all_levels(filedict): 
-    raw_image = []
-    for level in  ['flair','t1','t2','t1ce']:
-        nib_img = nibabel.load(filedict[level])
-        niifti_data = nib_img.get_fdata()
-        niifti_data = niifti_data.astype(np.float32)
-        t = torch.tensor(niifti_data).permute([2, 0, 1])[25:-25,:,:]
-        t = transform(t)
+for i1 in directory:
+    for i2 in os.listdir(i1):  #group
+        i12 = os.path.join(i1,i2)
+        for i3 in os.listdir(i12): #patient
+            i123 = os.path.join(i12,i3) 
+            for i4 in os.listdir(i123): #slice - 4 types of img + seg
+                i1234 = os.path.join(i123,i4) 
+                data = np.load(i1234, allow_pickle = True)
+                # Load image and mask
 
-        raw_image.append(t/torch.max(t))
-    nib_img = nibabel.load(filedict['seg'])
-    niifti_data = nib_img.get_fdata()
-    niifti_data = niifti_data.astype(np.float32)
-    t = torch.tensor(niifti_data).permute([2, 0, 1])[25:-25, :, :]
-    t = transform(t)
-    raw_seg = t / torch.max(t)
-    return raw_image, raw_seg
+                image = data['image'].astype(np.float32)  # Convert to float32
+                mask = data['mask'].astype(np.float32)  # Convert to float32
 
+                if mask.shape[0] < 256:
 
-if not os.path.exists('data/brats2021_slices'):
-    os.makedirs('data/brats2021_slices')
-if not os.path.exists('data/brats2021_slices/images'):
-    os.makedirs('data/brats2021_slices/images')
-if not os.path.exists('data/brats2021_slices/segs'):
-    os.makedirs('data/brats2021_slices/segs')
+                    # Process image (4 channels)
+                    for i in range(image.shape[0]):
+                        if np.sum(image[i]) > 0:
+                            image[i] = min_max_scaler(image[i])
+                            # image[i] = irm_min_max_preprocess(image[i])
+    
+                    if np.sum(mask) > 0:
+                        mask = binarize(mask)
+    
+                    # Padding (8 pixels on each side)
+                    image = np.pad(image, ((0, 0), (8, 8), (8, 8)), mode='constant', constant_values=0)
+                    mask = np.pad(mask, ((8, 8), (8, 8)), mode='constant', constant_values=0)
+    
+                    np.savez(i1234, image=image, mask=mask)
+                    
+                elif mask.shape[0] > 256:
+                    
+                    image = image[:, 8:-8, 8:-8]  # Giữ nguyên số kênh, chỉ cắt bớt chiều cao và chiều rộng
+                    mask = mask[8:-8, 8:-8]       # Cắt bớt mask theo cùng một cách
+    
+                    np.savez(i1234, image=image, mask=mask)
 
-for i in range(len(database)):
-    filedict = database[i]
-    images, seg = load_all_levels(filedict)
-    flair,t1, t2, t1ce = images
-    number = os.sep.join(os.path.normpath(filedict['flair']).split(os.sep)[-2:])
-    number = os.path.dirname(number)
-
-    flair -= flair.min()
-    flair /= flair.max()
-    t1-= t1.min()
-    t1 /= t1.max()
-    t2 -= t2.min()
-    t2 /= t2.max()
-    t1ce -= t1ce.min()
-    t1ce /= t1ce.max()
-    seg -= seg.min()
-    seg /= seg.max()
-
-
-    for slice_index in range(flair.shape[0]):
-        imageio.imwrite(f'data/brats2021_slices/images/{number}_{slice_index+25}_flair.png', skimage.img_as_ubyte(flair[slice_index, :, :]))
-        imageio.imwrite(
-            f'data/brats2021_slices/images/{number}_{slice_index+25}_t1.png',
-            skimage.img_as_ubyte(t1[slice_index, :, :]))
-        imageio.imwrite(
-            f'data/brats2021_slices/images/{number}_{slice_index+25}_t2.png',
-            skimage.img_as_ubyte(t2[slice_index, :, :]))
-        imageio.imwrite(
-            f'data/brats2021_slices/images/{number}_{slice_index+25}_t1ce.png',
-            skimage.img_as_ubyte(t1ce[slice_index, :, :]))
-        imageio.imwrite(f'data/brats2021_slices/segs/{number}_{slice_index+25}_seg.png', skimage.img_as_ubyte(seg[slice_index, :, :]))
+                
+        
 
 
 ################ cảm giác chỉ là chuẩn hóa ảnh và sau đó lưu vào các file với tên tuong ứng --> xem xét bỏ qua

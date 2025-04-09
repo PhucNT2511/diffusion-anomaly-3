@@ -267,7 +267,7 @@ class TrainLoop:
                 model_kwargs=micro_cond,
                 x_count = micro_count
             )
-
+            
             if last_batch or not self.use_ddp:
                 losses = compute_losses()
             else:
