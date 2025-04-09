@@ -320,8 +320,30 @@ def main():
             print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
             print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
+            # --- Kiểm tra gradient của từng loss thành phần --- #
+            loss_cls_mean = loss_cls.mean()
+            loss_centralization_mean = loss_centralization.mean()
             
-             
+            # Tính gradient từ loss_cls riêng
+            mp_trainer.zero_grad()
+            loss_cls_mean.backward(retain_graph=True)
+            print("Gradients từ loss_cls:")
+            for name, param in model.named_parameters():
+                if param.grad is not None:
+                    print(f"{name}: grad norm = {param.grad.norm().item()}")
+            # Lưu gradient nếu cần
+            #grads_loss_cls = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
+            
+            # Tính gradient từ loss_centralization riêng
+            mp_trainer.zero_grad()
+            loss_centralization_mean.backward(retain_graph=True)
+            print("Gradients từ loss_centralization:")
+            for name, param in model.named_parameters():
+                if param.grad is not None:
+                    print(f"{name}: grad norm = {param.grad.norm().item()}")
+            #grads_loss_centralization = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
+            # --- Kết thúc kiểm tra --- #
+                
             loss = loss_cls + loss_centralization * lambda_div
             
             losses = {}
