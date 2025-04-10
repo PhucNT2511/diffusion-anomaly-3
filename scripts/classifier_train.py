@@ -221,7 +221,7 @@ def main():
     
     # ---------------------------------------------
      # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
-    lambda_div = 0.1 
+    lambda_div = 1.0
     '''
     # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
     layers_to_finetune = []
@@ -321,29 +321,7 @@ def main():
             print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
             # --- Kiểm tra gradient của từng loss thành phần --- #
-            loss_cls_mean = loss_cls.mean()
-            loss_centralization_mean = loss_centralization.mean()
-            
-            # Tính gradient từ loss_cls riêng
-            mp_trainer.zero_grad()
-            loss_cls_mean.backward(retain_graph=True)
-            print("Gradients từ loss_cls:")
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    print(f"{name}: grad norm = {param.grad.norm().item()}")
-            # Lưu gradient nếu cần
-            #grads_loss_cls = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
-            
-            # Tính gradient từ loss_centralization riêng
-            mp_trainer.zero_grad()
-            loss_centralization_mean.backward(retain_graph=True)
-            print("Gradients từ loss_centralization:")
-            for name, param in model.named_parameters():
-                if param.grad is not None:
-                    print(f"{name}: grad norm = {param.grad.norm().item()}")
-            #grads_loss_centralization = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
-            # --- Kết thúc kiểm tra --- #
-                
+ 
             loss = loss_cls + loss_centralization * lambda_div
             
             losses = {}
