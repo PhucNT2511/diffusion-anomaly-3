@@ -221,8 +221,7 @@ def main():
     
     # ---------------------------------------------
      # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
-    lambda_div = 10.0
-    '''
+     '''
     # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
     layers_to_finetune = []
     for name, module in model.module.named_modules():
@@ -234,6 +233,9 @@ def main():
         print(name)
     # ---------------------------------------------
     '''
+    
+    lambda_div = 10.0
+    
     def patch_average_replace(a: th.Tensor, patch_size: int = 4):
         """
         Replace each patch (patch_size x patch_size) in (B, C, H, W)
@@ -304,17 +306,15 @@ def main():
                 loss_div = loss_div + diversity_loss(layer_module)
             '''
             
-            ### Tính loss túm tụm
-            
-            with th.enable_grad():     
-                sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
-                logits_0 = model(sub_batch_0, sub_t_0)
-                log_probs = F.log_softmax(logits_0, dim=-1)
-                selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
+            ### Tính loss túm tụm   
+            sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
+            logits_0 = model(sub_batch_0, sub_t_0)
+            log_probs = F.log_softmax(logits_0, dim=-1)
+            selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
 
-                a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
-                mean_a = patch_average_replace(a)
-                loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
+            a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
+            mean_a = patch_average_replace(a)
+            loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
             
 
             print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
@@ -468,7 +468,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=8,
+        batch_size=16,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
