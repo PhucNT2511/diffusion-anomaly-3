@@ -233,8 +233,8 @@ def main():
         print(name)
     # ---------------------------------------------
     '''
-    
-    lambda_div = 10.0
+
+    lambda_div = 0.1
     
     def patch_average_replace(a: th.Tensor, patch_size: int = 4):
         """
