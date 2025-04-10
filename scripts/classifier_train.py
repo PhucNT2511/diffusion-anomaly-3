@@ -305,7 +305,7 @@ def main():
             '''
             
             ### Tính loss túm tụm
-            '''
+            
             with th.enable_grad():     
                 sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
                 logits_0 = model(sub_batch_0, sub_t_0)
@@ -315,14 +315,14 @@ def main():
                 a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
                 mean_a = patch_average_replace(a)
                 loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
-            '''
+            
 
-            #print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
-            #print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
+            print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
+            print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
             # Tổng loss: kết hợp loss phân loại và diversity loss
             # --- Kiểm tra gradient của từng loss thành phần --- #
  
-            loss = loss_cls #+ loss_centralization * lambda_div
+            loss = loss_cls + loss_centralization * lambda_div
             
             losses = {}
             losses[f"{prefix}_loss"] = loss.detach()
