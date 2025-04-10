@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import pickle
 import pandas as pd
 import faiss
+from sklearn.decomposition import PCA
 
 def normalize(image):
     """Basic min max scaler.
@@ -81,22 +82,26 @@ class BRATSDataset(torch.utils.data.Dataset):
         N = dataset.shape[0]
         X = dataset.reshape(N, -1).astype('float32')
 
+        # Giảm chiều dữ liệu bằng PCA
+        pca = PCA(n_components=100)  # Số lượng thành phần chính giữ lại, có thể điều chỉnh
+        X_reduced = pca.fit_transform(X)
+
         # Chuẩn hóa dữ liệu nếu cần
         if normalize:
-            norms = np.linalg.norm(X, axis=1, keepdims=True)
-            X = X / (norms + 1e-10)
+            norms = np.linalg.norm(X_reduced, axis=1, keepdims=True)
+            X_reduced = X_reduced / (norms + 1e-10)
 
         # Thiết lập FAISS KMeans trên GPU
-        d = X.shape[1]
+        d = X_reduced.shape[1]
         kmeans = faiss.Kmeans(d, n_clusters, niter=n_iter, verbose=True, gpu=True)
 
         # Huấn luyện mô hình KMeans
         print("Bắt đầu huấn luyện phân cụm trên GPU...")
-        kmeans.train(X)
+        kmeans.train(X_reduced)
         print("Huấn luyện hoàn tất!")
 
         # Gán nhãn cho từng ảnh
-        _, cluster_labels = kmeans.index.search(X, 1)
+        _, cluster_labels = kmeans.index.search(X_reduced, 1)
         cluster_labels = cluster_labels.flatten()
 
         return cluster_labels
