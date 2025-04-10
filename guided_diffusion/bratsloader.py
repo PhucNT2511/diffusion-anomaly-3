@@ -1,14 +1,12 @@
-import torch 
+import torch
 import numpy as np
-import torch.nn.functional as F
-import pickle
 import pandas as pd
-import faiss
 from sklearn.decomposition import PCA
+from sklearn.cluster import MiniBatchKMeans
+import faiss
 
 def normalize(image):
-    """Basic min max scaler.
-    """
+    """Chuẩn hóa dữ liệu theo min-max."""
     min_ = np.min(image)
     max_ = np.max(image)
     scale = max_ - min_
@@ -16,14 +14,7 @@ def normalize(image):
     return image
 
 def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
-    """Main pre-processing function used for the challenge (seems to work the best).
-    Remove outliers voxels first, then min-max scale.
-    1% -- 99%
-    Warnings
-    --------
-    This will not do it channel wise!!
-    """
-
+    """Tiền xử lý dữ liệu bằng cách loại bỏ ngoại lệ và chuẩn hóa min-max."""
     non_zeros = image > 0
     if non_zeros.sum() > 0:
         low, high = np.percentile(image[non_zeros], [low_perc, high_perc])
@@ -31,16 +22,15 @@ def irm_min_max_preprocess(image, low_perc=1, high_perc=99):
         image = normalize(image)
     return image
 
-
 class BRATSDataset(torch.utils.data.Dataset):
     def __init__(self, mode="train", fold=1, test_flag=False, transforms=None, few_shot="both_positive_negative"):
         super().__init__()
         self.datapaths = []
         self.transforms = transforms
         if self.transforms:
-            print("Transform for data augmentation.")
+            print("Sử dụng biến đổi dữ liệu cho tăng cường dữ liệu.")
         else:
-            print("No data augmentation")
+            print("Không sử dụng tăng cường dữ liệu.")
 
         # Tải danh sách đường dẫn dữ liệu và thông tin liên quan
         data_split = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/data_split.npz', allow_pickle=True)
@@ -50,7 +40,7 @@ class BRATSDataset(torch.utils.data.Dataset):
             self.datapaths = meta_data_df[meta_data_df['volume'].isin(volume_ids)]['path'].values
         else:
             self.datapaths = meta_data_df[(meta_data_df['volume'].isin(volume_ids)) & (meta_data_df['label'] == 1)]['path'].values
-        print(f'Number of {mode} data: {len(self.datapaths)}')
+        print(f'Số lượng dữ liệu {mode}: {len(self.datapaths)}')
 
         # Xác định các ảnh có annotation tồn tại
         self.exist_annotation = None
@@ -63,7 +53,7 @@ class BRATSDataset(torch.utils.data.Dataset):
 
     def perform_clustering(self, n_clusters=4, n_iter=300, normalize=True):
         """
-        Tiền xử lý dữ liệu và thực hiện phân cụm sử dụng FAISS trên GPU.
+        Tiền xử lý dữ liệu và thực hiện phân cụm sử dụng MiniBatchKMeans sau khi giảm chiều bằng PCA.
 
         Trả về:
         - cluster_labels: numpy array chứa nhãn cụm của từng ảnh.
@@ -83,7 +73,7 @@ class BRATSDataset(torch.utils.data.Dataset):
         X = dataset.reshape(N, -1).astype('float32')
 
         # Giảm chiều dữ liệu bằng PCA
-        pca = PCA(n_components=100)  # Số lượng thành phần chính giữ lại, có thể điều chỉnh
+        pca = PCA(n_components=50)  # Số lượng thành phần chính giữ lại, có thể điều chỉnh
         X_reduced = pca.fit_transform(X)
 
         # Chuẩn hóa dữ liệu nếu cần
@@ -91,18 +81,9 @@ class BRATSDataset(torch.utils.data.Dataset):
             norms = np.linalg.norm(X_reduced, axis=1, keepdims=True)
             X_reduced = X_reduced / (norms + 1e-10)
 
-        # Thiết lập FAISS KMeans trên GPU
-        d = X_reduced.shape[1]
-        kmeans = faiss.Kmeans(d, n_clusters, niter=n_iter, verbose=True, gpu=True)
-
-        # Huấn luyện mô hình KMeans
-        print("Bắt đầu huấn luyện phân cụm trên GPU...")
-        kmeans.train(X_reduced)
-        print("Huấn luyện hoàn tất!")
-
-        # Gán nhãn cho từng ảnh
-        _, cluster_labels = kmeans.index.search(X_reduced, 1)
-        cluster_labels = cluster_labels.flatten()
+        # Thực hiện phân cụm bằng MiniBatchKMeans
+        kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init='auto', max_iter=n_iter, batch_size=100)
+        cluster_labels = kmeans.fit_predict(X_reduced)
 
         return cluster_labels
 
