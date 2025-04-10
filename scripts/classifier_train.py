@@ -221,7 +221,7 @@ def main():
     
     # ---------------------------------------------
      # hệ số cho diversity loss - nếu dùng càng nhiều tầng thì hệ số này càng phải điều chỉnh, vì bản thân một tầng CNN đã scale về 1 rồi
-    lambda_div = 1.0
+    lambda_div = 10.0
     '''
     # Lấy danh sách các tầng Conv2d để fine-tuning dựa trên kiến trúc của classifier (EncoderUNetModel)
     layers_to_finetune = []
