@@ -474,28 +474,40 @@ class GaussianDiffusion:
             logits_baseline = classifier(mean_baseline, timesteps=t-1)
 
             with th.enable_grad():
-
                 # Khởi tạo delta_cfn với giá trị 0 và yêu cầu tính grad
                 delta_cfn = th.zeros_like(cfn, requires_grad=True)
                 optimizer = th.optim.AdamW([delta_cfn], lr=0.001)
-                lambda_eff = 1e3  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
+                lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
-                for _ in range(20):
+                for i in range(20):
                     optimizer.zero_grad()
-                    # new_cfn = cfn + delta_cfn
-                    new_cfn = cfn + delta_cfn
+
                     # Tính toán mean mới dựa trên new_cfn
+                    new_cfn = cfn + delta_cfn
                     mean_new = out["mean"] + out["variance"] * new_cfn
                     logits_new = classifier(mean_new, timesteps=t-1)
-                    
+
                     # Hàm mất mát để giữ logits không thay đổi (so sánh logits_new với logits_baseline)
                     loss_logits = F.mse_loss(logits_new, logits_baseline)
                     # Hàm regularization L1: ép new_cfn về 0
                     loss_reg = th.mean(th.abs(new_cfn))
-                    loss = lambda_eff * loss_logits + loss_reg
+                    loss = loss_logits + lambda_eff * loss_reg
 
-                    loss.backward()
+                    # In loss
+                    print(f"[Iter {i}] loss_logits: {loss_logits.item():.6f}, loss_reg: {loss_reg.item():.6f}, total_loss: {loss.item():.6f}")
+
+                    # Tính gradient
+                    loss.backward(retain_graph=True)
+
+                    # In gradient chỉ cho delta_cfn
+                    print(f"[Iter {i}] Grad của loss_logits theo delta_cfn: {(lambda_eff * delta_cfn.grad).detach()}")
+                    # Do loss_reg = mean(abs(new_cfn)), nên grad của nó là sign(new_cfn)
+                    grad_reg = th.sign(new_cfn).detach()
+                    print(f"[Iter {i}] Grad của loss_reg theo delta_cfn: {grad_reg}")
+                    print(f"[Iter {i}] Tổng Grad (delta_cfn.grad): {delta_cfn.grad}")
+
                     optimizer.step()
+
             
             # Cập nhật cfn với delta_cfn đã tối ưu
             cfn = cfn + delta_cfn.detach()
