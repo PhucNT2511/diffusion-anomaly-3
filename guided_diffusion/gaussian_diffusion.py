@@ -452,7 +452,7 @@ class GaussianDiffusion:
 
         if (classifier is None) or (t[0] not in t_set):
             # Không sử dụng classifier hoặc điều kiện không thỏa mãn, sử dụng cfn ban đầu
-            a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
+            a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
             out = p_mean_var.copy()
