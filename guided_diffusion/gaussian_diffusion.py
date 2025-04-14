@@ -463,7 +463,6 @@ class GaussianDiffusion:
             return out, cfn  # cfn là saliency
 
         else:
-
             out = p_mean_var.copy()
             if cond_fn2 is not None:
                 a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
@@ -471,8 +470,8 @@ class GaussianDiffusion:
                 a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
 
             # Tính baseline logits từ mean ban đầu đã có cfn
-                mean_baseline = out["mean"] + out["variance"] * cfn
-                logits_baseline = classifier(mean_baseline, timesteps=t-1)
+            mean_baseline = out["mean"] + out["variance"] * cfn
+            logits_baseline = classifier(mean_baseline, timesteps=t-1)
 
             with th.enable_grad():
 
