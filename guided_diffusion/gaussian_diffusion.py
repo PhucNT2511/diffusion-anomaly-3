@@ -438,7 +438,7 @@ class GaussianDiffusion:
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
     def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, 
-                         t_set = [], cond_fn2 = None):
+                     t_set=[], cond_fn2=None):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -451,12 +451,8 @@ class GaussianDiffusion:
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
 
         if (classifier is None) or (t[0] not in t_set):
-            ########### cfn is Refined Grad
-            a, cfn = cond_fn(
-                x, self._scale_timesteps(t).long(), **model_kwargs
-            )
-
-            ######### Use refined grad - Unlike condition mean, we adjust in noise
+            # Không sử dụng classifier hoặc điều kiện không thỏa mãn, sử dụng cfn ban đầu
+            a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
             out = p_mean_var.copy()
@@ -464,85 +460,56 @@ class GaussianDiffusion:
             out["mean"], _, _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
-
-            return out, cfn  ### cfn is saliency
+            return out, cfn  # cfn là saliency
 
         else:
             out = p_mean_var.copy()
             if cond_fn2 is not None:
-                a, cfn = cond_fn2(
-                    x, self._scale_timesteps(t).long(), **model_kwargs
-                )
+                a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             else:
-                a, cfn = cond_fn(
-                    x, self._scale_timesteps(t).long(), **model_kwargs
-                )
+                a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
+
+            # Tính baseline logits từ mean ban đầu đã có cfn
+            mean_baseline = out["mean"] + out["variance"] * cfn
+            logits_baseline = classifier(mean_baseline, timesteps=t-1)
+
             with th.enable_grad():
-                ##### Cách này đang muốn sự thay đổi nhỏ cho cfn trong khi vẫn dự đoán chính xác hơn
-                # Giả sử cfn ban đầu không thay đổi, ta chỉ học delta (điều chỉnh)
+                # Khởi tạo delta_cfn với giá trị 0 và yêu cầu tính grad
                 delta_cfn = th.zeros_like(cfn, requires_grad=True)
                 optimizer = th.optim.AdamW([delta_cfn], lr=0.001)
-
-                # Sinh ngẫu nhiên nhãn cho batch (chú ý: randint(low, high) tạo các giá trị từ low đến high-1)
-                labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
-                lambda_eff = 1e3  # Hệ số cân bằng giữa loss_cls và loss_reg
+                lambda_eff = 1e3  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
                 for _ in range(20):
-                    print('delta_cfn (unique): ', delta_cfn.unique())
                     optimizer.zero_grad()
-
-                    # Tính toán cfn mới dựa trên delta: giữ nguyên cfn ban đầu, chỉ cộng thêm delta
+                    # new_cfn = cfn + delta_cfn
                     new_cfn = cfn + delta_cfn
-                    print('new_cfn (unique): ', new_cfn.unique())
+                    # Tính toán mean mới dựa trên new_cfn
+                    mean_new = out["mean"] + out["variance"] * new_cfn
+                    logits_new = classifier(mean_new, timesteps=t-1)
+                    
+                    # Hàm mất mát để giữ logits không thay đổi (so sánh logits_new với logits_baseline)
+                    loss_logits = F.mse_loss(logits_new, logits_baseline)
+                    # Hàm regularization L1: ép new_cfn về 0
+                    loss_reg = th.mean(th.abs(new_cfn))
+                    loss = lambda_eff * loss_logits + loss_reg
 
-                    # Cập nhật mean theo new_cfn
-                    mean = out["mean"] + out["variance"] * new_cfn
-
-                    # Tính toán logits từ classifier
-                    logits_new = classifier(mean, timesteps=t-1)
-                    loss_cls = F.cross_entropy(logits_new, labels, reduction='none')
-
-                    # Regularization: giảm thiểu giá trị delta (điều chỉnh)
-                    loss_reg = th.mean(th.square(delta_cfn), dim=(1, 2, 3))
-
-                    print(f'loss_reg: {loss_reg} - loss_cls: {loss_cls}')
-
-                    # Tính tổng loss: loss_cls trung bình nhân lambda_eff cộng với loss_reg trung bình
-                    loss = lambda_eff * loss_cls.mean() + loss_reg.mean()
-
-                    if not loss.requires_grad:
-                        raise RuntimeError("Loss does not require grad!")
-
-                    # Tính riêng gradient của loss_cls và loss_reg đối với delta_cfn
-                    '''
-                    grad_reg = th.autograd.grad(loss_reg.mean(), delta_cfn, retain_graph=True)[0]
-                    grad_cls = th.autograd.grad(lambda_eff * loss_cls.mean(), delta_cfn)[0]
-                    print("Grad norm từ loss_cls:", grad_cls.norm().item())
-                    print("Grad norm từ loss_reg:", grad_reg.norm().item())
-                    '''
-
-                    # Thực hiện backward cho loss tổng và cập nhật delta_cfn
                     loss.backward()
                     optimizer.step()
 
-                # Cập nhật cfn với delta_cfn đã được điều chỉnh
+                # Cập nhật cfn với delta_cfn đã tối ưu
                 cfn = cfn + delta_cfn.detach()
 
-                ##### Sau khi điều chỉnh xong, nhân thêm norm(cls_x0) nếu cần (ở đây nhân với mask)
+                # Nếu cần, áp dụng mask để chỉ giữ lại vùng ảnh cần điều chỉnh
                 cfn = cfn * model_kwargs['mask'][:, None, :, :]
 
-                # Update final eps
+                # Cập nhật final eps dựa trên cfn điều chỉnh
                 eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
-
-                # Tạo dictionary output mới
                 out = p_mean_var.copy()
                 out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
                 out["mean"], _, _ = self.q_posterior_mean_variance(
                     x_start=out["pred_xstart"], x_t=x, t=t
                 )
-
                 return out, cfn.detach()
-
 
                 '''
                 Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
@@ -1098,6 +1065,7 @@ class GaussianDiffusion:
         denoised_fn=None,
         model_kwargs=None,
         eta=0.0,
+        grad_x1 = None,
     ):
         """
         Sample x_{t+1} from the model using DDIM reverse ODE.
@@ -1117,7 +1085,7 @@ class GaussianDiffusion:
 
         ### Here, we use DDIM via ODE algorithm 
         # Usually our model outputs epsilon, but we re-derive it in case we used x_start or x_prev prediction.
-        # Predict eps between an image and its generated clean version (by DDPM)
+        # Predict EPS (noise) between an image and its generated clean version (by DDPM)
         # Calculate for x_{t+1}; Eg., x'_1 for x'_0 
         eps = (
             _extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x.shape) * x - out["pred_xstart"]

@@ -234,8 +234,9 @@ def main():
     # ---------------------------------------------
     '''
 
-    lambda_div = 0.001
-    
+    lambda_div = 0.01 ## must be very small, because the cls_loss will be small after some iters, so if centralized loss is big, there may lead to underfitting
+    ### or may be large if you mean() in L_2 loss
+
     def patch_average_replace(a: th.Tensor, patch_size: int = 4):
         """
         Replace each patch (patch_size x patch_size) in (B, C, H, W)
@@ -468,7 +469,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=32,
+        batch_size=16,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
