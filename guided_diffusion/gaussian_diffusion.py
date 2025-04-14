@@ -513,7 +513,7 @@ class GaussianDiffusion:
             cfn = cfn + delta_cfn.detach()
 
             # Nếu cần, áp dụng mask để chỉ giữ lại vùng ảnh cần điều chỉnh
-            cfn = cfn * model_kwargs['mask'][:, None, :, :]
+            #cfn = cfn * model_kwargs['mask'][:, None, :, :]
 
             # Cập nhật final eps dựa trên cfn điều chỉnh
             eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
