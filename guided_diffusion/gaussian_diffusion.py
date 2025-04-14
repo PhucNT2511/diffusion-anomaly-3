@@ -470,11 +470,11 @@ class GaussianDiffusion:
             else:
                 a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
 
-            with th.enable_grad():
-
-                # Tính baseline logits từ mean ban đầu đã có cfn
+            # Tính baseline logits từ mean ban đầu đã có cfn
                 mean_baseline = out["mean"] + out["variance"] * cfn
                 logits_baseline = classifier(mean_baseline, timesteps=t-1)
+
+            with th.enable_grad():
 
                 # Khởi tạo delta_cfn với giá trị 0 và yêu cầu tính grad
                 delta_cfn = th.zeros_like(cfn, requires_grad=True)
