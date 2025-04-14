@@ -463,7 +463,7 @@ class GaussianDiffusion:
             return out, cfn  # cfn là saliency
 
         else:
-            classifier.train()
+
             out = p_mean_var.copy()
             if cond_fn2 is not None:
                 a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
