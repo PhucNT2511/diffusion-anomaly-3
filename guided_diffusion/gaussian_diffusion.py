@@ -463,6 +463,7 @@ class GaussianDiffusion:
             return out, cfn  # cfn là saliency
 
         else:
+            classifier.train()
             out = p_mean_var.copy()
             if cond_fn2 is not None:
                 a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
@@ -495,70 +496,72 @@ class GaussianDiffusion:
 
                     loss.backward()
                     optimizer.step()
+            
+            classifier.eval()         
 
-                # Cập nhật cfn với delta_cfn đã tối ưu
-                cfn = cfn + delta_cfn.detach()
+            # Cập nhật cfn với delta_cfn đã tối ưu
+            cfn = cfn + delta_cfn.detach()
 
-                # Nếu cần, áp dụng mask để chỉ giữ lại vùng ảnh cần điều chỉnh
-                cfn = cfn * model_kwargs['mask'][:, None, :, :]
+            # Nếu cần, áp dụng mask để chỉ giữ lại vùng ảnh cần điều chỉnh
+            cfn = cfn * model_kwargs['mask'][:, None, :, :]
 
-                # Cập nhật final eps dựa trên cfn điều chỉnh
-                eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
-                out = p_mean_var.copy()
-                out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
-                out["mean"], _, _ = self.q_posterior_mean_variance(
-                    x_start=out["pred_xstart"], x_t=x, t=t
-                )
-                return out, cfn.detach()
+            # Cập nhật final eps dựa trên cfn điều chỉnh
+            eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
+            out = p_mean_var.copy()
+            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
+            out["mean"], _, _ = self.q_posterior_mean_variance(
+                x_start=out["pred_xstart"], x_t=x, t=t
+            )
+            return out, cfn.detach()
 
+            '''
+            Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
+
+            # Ensure cfn requires grad
+            cfn = cfn.clone().detach().requires_grad_(True)
+            #print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
+
+            # Optimizer for cfn
+            optimizer = th.optim.Adam([cfn], lr=0.0001)
+
+            labels = th.randint(
+                low=0, high=1, size=(x.shape[0],), device=x.device
+            )
+
+            lambda_eff = 100
+
+            for _ in range(20 - 1):
+                optimizer.zero_grad()
+                
+                ########### Choice 1: Use condition_score2 to estimate muy --> may not good ############
+                
+                # Adjust eps
+                #eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
+                # Predict new xstart
+                #pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
+                # Compute new mean
+                #mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
+                
+                ########### Choice 2: Like condition_mean #############
+                mean = out["mean"] + out["variance"] * cfn
+                
+
+                logits = classifier(mean, timesteps = t-1)
+    
+                loss1 = F.cross_entropy(logits, labels, reduction="none")
+                loss2 = th.mean(th.square(cfn), dim=(1, 2, 3))
+
+                #print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
+                #print(f"loss1: {loss1} - loss2: {loss2}")
+                loss = loss1.mean() + lambda_eff * loss2.mean()
+
+                # Check loss requires grad before backward
+                if not loss.requires_grad:
+                    raise RuntimeError("Loss does not require grad!")
+
+                loss.backward()
+                optimizer.step()
                 '''
-                Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
-
-                # Ensure cfn requires grad
-                cfn = cfn.clone().detach().requires_grad_(True)
-                #print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
-
-                # Optimizer for cfn
-                optimizer = th.optim.Adam([cfn], lr=0.0001)
-
-                labels = th.randint(
-                    low=0, high=1, size=(x.shape[0],), device=x.device
-                )
-
-                lambda_eff = 100
-
-                for _ in range(20 - 1):
-                    optimizer.zero_grad()
-                    
-                    ########### Choice 1: Use condition_score2 to estimate muy --> may not good ############
-                    
-                    # Adjust eps
-                    #eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
-                    # Predict new xstart
-                    #pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
-                    # Compute new mean
-                    #mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
-                    
-                    ########### Choice 2: Like condition_mean #############
-                    mean = out["mean"] + out["variance"] * cfn
-                    
-
-                    logits = classifier(mean, timesteps = t-1)
-        
-                    loss1 = F.cross_entropy(logits, labels, reduction="none")
-                    loss2 = th.mean(th.square(cfn), dim=(1, 2, 3))
-
-                    #print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
-                    #print(f"loss1: {loss1} - loss2: {loss2}")
-                    loss = loss1.mean() + lambda_eff * loss2.mean()
-
-                    # Check loss requires grad before backward
-                    if not loss.requires_grad:
-                        raise RuntimeError("Loss does not require grad!")
-
-                    loss.backward()
-                    optimizer.step()
-                    '''
 
     ######### SAMPLE DATA FOLLOW BATCHS OF DATA:
 
