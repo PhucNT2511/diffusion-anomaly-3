@@ -463,7 +463,6 @@ class GaussianDiffusion:
             return out, cfn  # cfn chính là saliency
 
         else:
-            classifier.train()
             out = p_mean_var.copy()
             a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
 
@@ -477,29 +476,30 @@ class GaussianDiffusion:
             optimizer = th.optim.AdamW([cfn_optim], lr=0.001)
             lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
-            for i in range(20):
-                optimizer.zero_grad()
+            with th.enable_grad():
 
-                # Tính mean mới với cfn_optim được cập nhật
-                mean_new = out["mean"] + out["variance"] * cfn_optim
-                print('mean_new grad: ', mean_new.requires_grad)
-                logits_new = classifier(mean_new, timesteps=t-1)
+                for i in range(20):
+                    optimizer.zero_grad()
 
-                # Hàm mất mát: giữ logits không thay đổi và regularization L1 cho cfn_optim
-                loss_logits = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none")
-                loss_logits = loss_logits.mean()
-                loss_reg = th.mean(th.abs(cfn_optim))
-                loss = loss_logits + lambda_eff * loss_reg
+                    # Tính mean mới với cfn_optim được cập nhật
+                    mean_new = out["mean"] + out["variance"] * cfn_optim
+                    print('mean_new grad: ', mean_new.requires_grad)
+                    logits_new = classifier(mean_new, timesteps=t-1)
 
-                # In loss
-                print(f"[Iter {i}] loss_logits: {loss_logits.item():.6f}, loss_reg: {loss_reg.item():.6f}, total_loss: {loss.item():.6f}")
-                print(f"[Iter {i}] loss_logits: {loss_logits.requires_grad}, loss_reg: {loss_reg.requires_grad}")
-                      
-                # Tính gradient chỉ cho cfn_optim (chỉ có biến này có requires_grad=True)
-                loss.backward()
-                print(f"[Iter {i}] Grad của loss (cfn_optim.grad): {cfn_optim.grad.detach()}")
-                optimizer.step()
-            classifier.eval()
+                    # Hàm mất mát: giữ logits không thay đổi và regularization L1 cho cfn_optim
+                    loss_logits = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none")
+                    loss_logits = loss_logits.mean()
+                    loss_reg = th.mean(th.abs(cfn_optim))
+                    loss = loss_logits + lambda_eff * loss_reg
+
+                    # In loss
+                    print(f"[Iter {i}] loss_logits: {loss_logits.item():.6f}, loss_reg: {loss_reg.item():.6f}, total_loss: {loss.item():.6f}")
+                    print(f"[Iter {i}] loss_logits: {loss_logits.requires_grad}, loss_reg: {loss_reg.requires_grad}")
+                        
+                    # Tính gradient chỉ cho cfn_optim (chỉ có biến này có requires_grad=True)
+                    loss.backward()
+                    print(f"[Iter {i}] Grad của loss (cfn_optim.grad): {cfn_optim.grad.detach()}")
+                    optimizer.step()
 
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
             cfn_updated = cfn_optim.detach()
