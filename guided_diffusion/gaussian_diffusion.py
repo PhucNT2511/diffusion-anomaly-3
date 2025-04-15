@@ -482,6 +482,7 @@ class GaussianDiffusion:
 
                 # Tính mean mới với cfn_optim được cập nhật
                 mean_new = out["mean"] + out["variance"] * cfn_optim
+                print('mean_new grad: ', mean_new.requires_grad)
                 logits_new = classifier(mean_new, timesteps=t-1)
 
                 # Hàm mất mát: giữ logits không thay đổi và regularization L1 cho cfn_optim
