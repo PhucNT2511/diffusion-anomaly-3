@@ -491,7 +491,7 @@ class GaussianDiffusion:
 
                 # In loss
                 print(f"[Iter {i}] loss_logits: {loss_logits.item():.6f}, loss_reg: {loss_reg.item():.6f}, total_loss: {loss.item():.6f}")
-                print(f"[Iter {i}] loss_logits: {loss_logits.requires_grad()}, loss_reg: {loss_reg.requires_grad()"}
+                print(f"[Iter {i}] loss_logits: {loss_logits.requires_grad()}, loss_reg: {loss_reg.requires_grad()}")
                       
                 # Tính gradient chỉ cho cfn_optim (chỉ có biến này có requires_grad=True)
                 loss.backward()
