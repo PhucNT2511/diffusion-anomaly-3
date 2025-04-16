@@ -95,11 +95,11 @@ def plot_cfn_row(cfn_updated):
         cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
 
         # Set up 1 hàng 16 cột
-        fig, axes = plt.subplots(1, 16, figsize=(16 * 1.5, 1.5 * 1), dpi=100)
+        fig, axes = plt.subplots(1, 16, figsize=(24,1.5))
 
         for i in range(16):
             ax = axes[i]
-            ax.imshow(cfn_sum[i], cmap='hot')
+            ax.imshow(cfn_sum[i], cmap='gray')
             ax.axis('off')
             ax.set_title(f'{i}', fontsize=8)
 
@@ -494,7 +494,7 @@ class GaussianDiffusion:
 
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
-            print('cfn_optim grad: ', cfn_optim.requires_grad)
+            #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.1)
             lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
@@ -510,24 +510,24 @@ class GaussianDiffusion:
                     loss_reg = th.mean(th.abs(cfn_reg))
                     grad_loss_reg = th.autograd.grad(loss_reg, cfn_reg, retain_graph=True)[0]
 
-                    print(f"[Iter {i}] Grad của loss_reg: {loss_reg.requires_grad} - {grad_loss_reg}")
+                    #print(f"[Iter {i}] Grad của loss_reg: {loss_reg.requires_grad} - {grad_loss_reg}")
 
                     # --- Forward pass riêng cho loss_logits ---
                     
                     mean_new_logits = out["mean"] + out["variance"] * cfn_logits
-                    print('cfn_logits grad: ', cfn_logits.requires_grad)
-                    print('mean_new_logits grad: ', mean_new_logits.requires_grad)
+                    #print('cfn_logits grad: ', cfn_logits.requires_grad)
+                    #print('mean_new_logits grad: ', mean_new_logits.requires_grad)
 
                     logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
-                    print('logits_new_logits grad: ', logits_new_logits.requires_grad)
+                    #print('logits_new_logits grad: ', logits_new_logits.requires_grad)
 
                     loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
-                    print(f"[Iter {i}] Grad của loss_logits: {loss_logits.requires_grad} ")
+                    #print(f"[Iter {i}] Grad của loss_logits: {loss_logits.requires_grad} ")
                     
                     #make_dot(loss_logits, params={'cfn_logits': cfn_logits}).render("graph", format="png")
 
                     grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
-                    print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits}")
+                    #print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits}")
 
                     # --- Tính loss tổng trên đồ thị chính với cfn_optim ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim
@@ -536,7 +536,7 @@ class GaussianDiffusion:
                     loss_reg_main = th.mean(th.abs(cfn_optim))
                     loss = loss_logits_main + lambda_eff * loss_reg_main
                     loss.backward()
-                    print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
+                    #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
 
                     optimizer.step()
 
