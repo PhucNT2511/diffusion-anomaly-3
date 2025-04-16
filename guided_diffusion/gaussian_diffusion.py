@@ -491,7 +491,7 @@ class GaussianDiffusion:
             t_0 = th.zeros_like(t).long()
 
             out = p_mean_var.copy()
-            a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
+            cfn, a = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             #cfn_x0 = model_kwargs['grad_x0']
             cfn_x0 = model_kwargs['mask']
 
@@ -553,7 +553,7 @@ class GaussianDiffusion:
                     
                     
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
-                    mean_new = out["mean"] + out["variance"] * cfn_optim
+                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
                     
@@ -568,17 +568,20 @@ class GaussianDiffusion:
                     # --- 2.Regularization: Tính loss Hiệu chỉnh
                     ### L1 - Tệ
                     #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0)) 
+
                     ### L1
-                    #loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) #lambda_eff: 0.01
+                    loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) #lambda_eff: 0.01
+
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_optim * (1 - cfn_x0[:, None, :, :]), torch.zeros_like(cfn_optim))
+
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
-                    loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
+                    #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
 
                     loss = loss_logits_main + lambda_eff * loss_reg_main
                     loss.backward()
+                    
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
-
                     optimizer.step()
 
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
@@ -589,7 +592,7 @@ class GaussianDiffusion:
             ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
-            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated
+            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
             out["mean"], _, _ = self.q_posterior_mean_variance(
