@@ -534,8 +534,8 @@ class GaussianDiffusion:
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
-                    #loss_reg_main = th.mean(th.abs(cfn_optim))
-                    loss = loss_logits_main # + lambda_eff * loss_reg_main
+                    loss_reg_main = th.mean(th.abs(cfn_optim))
+                    loss = loss_logits_main  + lambda_eff * loss_reg_main
                     loss.backward()
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
 
