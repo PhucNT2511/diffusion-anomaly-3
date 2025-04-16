@@ -466,10 +466,6 @@ class GaussianDiffusion:
             out = p_mean_var.copy()
             a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
 
-            # Tính baseline logits từ mean ban đầu đã có cfn
-            #mean_baseline = out["mean"] + out["variance"] * cfn
-            #logits_baseline = classifier(mean_baseline, timesteps=t-1)
-
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             print('cfn_optim grad: ', cfn_optim.requires_grad)
@@ -477,7 +473,6 @@ class GaussianDiffusion:
             lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
             with th.enable_grad():
-
                 for i in range(20):
                     optimizer.zero_grad()
 
@@ -492,13 +487,18 @@ class GaussianDiffusion:
                     loss_reg = th.mean(th.abs(cfn_optim))
                     loss = loss_logits + lambda_eff * loss_reg
 
-                    # In loss
-                    print(f"[Iter {i}] loss_logits: {loss_logits.item():.6f}, loss_reg: {loss_reg.item():.6f}, total_loss: {loss.item():.6f}")
-                    print(f"[Iter {i}] loss_logits: {loss_logits.requires_grad}, loss_reg: {loss_reg.requires_grad}")
-                        
-                    # Tính gradient chỉ cho cfn_optim (chỉ có biến này có requires_grad=True)
+                    # Tính gradient riêng cho từng thành phần loss
+                    grad_loss_logits = th.autograd.grad(loss_logits, cfn_optim, retain_graph=True)[0]
+                    grad_loss_reg = th.autograd.grad(loss_reg, cfn_optim, retain_graph=True)[0]
+
+                    # In ra gradient của từng thành phần
+                    print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits.detach()}")
+                    print(f"[Iter {i}] Grad của loss_reg: {grad_loss_reg.detach()}")
+
+                    # Sau đó thực hiện backward tổng hợp trên loss
                     loss.backward()
-                    print(f"[Iter {i}] Grad của loss (cfn_optim.grad): {cfn_optim.grad.detach()}")
+                    print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
+
                     optimizer.step()
 
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
@@ -512,7 +512,6 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
             return out, cfn_updated
-
 
             '''
             Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
