@@ -555,7 +555,7 @@ class GaussianDiffusion:
 
                     # --- 2.Regularization: Tính loss Hiệu chỉnh
                     #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0))
-                    loss_reg_main = th.mean(th.abs(th.abs(cfn_optim) - cfn_x0[:, None, :, :])) ### 
+                    loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) ### 
 
 
                     loss = loss_logits_main + lambda_eff * loss_reg_main
