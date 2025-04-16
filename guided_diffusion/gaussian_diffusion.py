@@ -496,7 +496,7 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.1)
-            lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
+            lambda_eff = 0.001  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
             #cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
             #cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
