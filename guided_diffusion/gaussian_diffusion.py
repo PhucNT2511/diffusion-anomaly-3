@@ -471,6 +471,7 @@ class GaussianDiffusion:
         from Song et al (2020).
         """
         t = t.long()
+
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
 
@@ -487,6 +488,8 @@ class GaussianDiffusion:
             return out, cfn  # cfn chính là saliency
 
         else:
+            t_0 = th.zeros_like(t).long()
+
             out = p_mean_var.copy()
             a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             #cfn_x0 = model_kwargs['grad_x0']
@@ -548,9 +551,17 @@ class GaussianDiffusion:
                     loss_logits_main = th.nn.functional.mse_loss(logits_new, old_logits)
                     '''
                     
-                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim ---
+                    '''
+                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
+                    loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
+                    '''
+
+                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua predicted x_0 ---
+                    eps_i = eps - (1 - alpha_bar).sqrt() * cfn_optim
+                    mean_new = self._predict_xstart_from_eps(x, t, eps_i)
+                    logits_new = classifier(mean_new, timesteps=t_0)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
                     
 
