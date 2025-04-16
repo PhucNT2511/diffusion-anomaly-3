@@ -473,6 +473,8 @@ class GaussianDiffusion:
             lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
             with th.enable_grad():
+                for param in classifier.parameters():
+                    param.requires_grad = False
                 for i in range(20):
                     optimizer.zero_grad()
 
@@ -487,13 +489,12 @@ class GaussianDiffusion:
                     loss_reg = th.mean(th.abs(cfn_optim))
                     loss = loss_logits + lambda_eff * loss_reg
 
-                    # Tính gradient riêng cho từng thành phần loss
-                    grad_loss_logits = th.autograd.grad(loss_logits, cfn_optim, retain_graph=True)[0]
-                    grad_loss_reg = th.autograd.grad(loss_reg, cfn_optim, retain_graph=True)[0]
+                    with torch.no_grad():
+                        grad_loss_logits = torch.autograd.grad(loss_logits, cfn_optim, retain_graph=True)[0]
+                        grad_loss_reg = torch.autograd.grad(loss_reg, cfn_optim, retain_graph=True)[0]
 
-                    # In ra gradient của từng thành phần
-                    print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits.detach()}")
-                    print(f"[Iter {i}] Grad của loss_reg: {grad_loss_reg.detach()}")
+                    print(f"[Iter {i}] Grad của loss_logits: {th.unique(grad_loss_logits)}")
+                    print(f"[Iter {i}] Grad của loss_reg: {th.unique(grad_loss_reg)}")
 
                     # Sau đó thực hiện backward tổng hợp trên loss
                     loss.backward()
@@ -519,7 +520,7 @@ class GaussianDiffusion:
             # Ensure cfn requires grad
             cfn = cfn.clone().detach().requires_grad_(True)
             #print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
-
+        
             # Optimizer for cfn
             optimizer = th.optim.Adam([cfn], lr=0.0001)
 
