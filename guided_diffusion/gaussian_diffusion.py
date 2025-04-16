@@ -477,9 +477,10 @@ class GaussianDiffusion:
             cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
 
             with th.enable_grad():
+                '''
                 for param in classifier.parameters():
                     param.requires_grad = False
-
+                '''
                 for i in range(20):
                     optimizer.zero_grad()
 
