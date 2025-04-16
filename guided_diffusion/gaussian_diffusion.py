@@ -483,12 +483,18 @@ class GaussianDiffusion:
                     cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
                     loss_reg = th.mean(th.abs(cfn_reg))
                     grad_loss_reg = th.autograd.grad(loss_reg, cfn_reg, retain_graph=True)[0]
-                    print(f"[Iter {i}] Grad của loss_reg: {th.unique(grad_loss_reg)}")
+
+                    print(f"[Iter {i}] Grad của loss_reg: {grad_loss_reg.requires_grad} - {th.unique(grad_loss_reg)}")
 
                     # --- Forward pass riêng cho loss_logits ---
                     cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
                     mean_new_logits = out["mean"] + out["variance"] * cfn_logits
+                    print('cfn_logits grad: ', cfn_logits.requires_grad)
+                    print('mean_new_logits grad: ', mean_new_logits.requires_grad)
+
                     logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
+                    print('logits_new_logits grad: ', logits_new_logits.requires_grad)
+
                     loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
                     grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
                     print(f"[Iter {i}] Grad của loss_logits: {th.unique(grad_loss_logits)}")
