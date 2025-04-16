@@ -5,7 +5,7 @@ https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0
 Docstrings have been added, as well as DDIM sampling and a new collection of beta schedules.
 """
 from PIL import Image
-from torchviz import make_dot
+#from torchviz import make_dot
 from torch.autograd import Variable
 import enum
 import torch.nn.functional as F
@@ -492,14 +492,16 @@ class GaussianDiffusion:
                     mean_new_logits = out["mean"] + out["variance"] * cfn_logits
                     print('cfn_logits grad: ', cfn_logits.requires_grad)
                     print('mean_new_logits grad: ', mean_new_logits.requires_grad)
+                    print('mean grad: ', out["mean"].requires_grad)
+                    print('variance grad: ', out["variance"].requires_grad)
 
                     logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
                     print('logits_new_logits grad: ', logits_new_logits.requires_grad)
 
-                    loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
+                    loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none")
                     print(f"[Iter {i}] Grad của loss_logits: {loss_logits.requires_grad} ")
                     
-                    make_dot(loss_logits, params={'cfn_logits': cfn_logits}).render("graph", format="png")
+                    #make_dot(loss_logits, params={'cfn_logits': cfn_logits}).render("graph", format="png")
 
                     grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
                     print(f"[Iter {i}] Grad của loss_logits: {th.unique(grad_loss_logits)}")
