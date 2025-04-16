@@ -500,7 +500,7 @@ class GaussianDiffusion:
                     logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
                     print('logits_new_logits grad: ', logits_new_logits.requires_grad)
 
-                    loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none")
+                    loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
                     print(f"[Iter {i}] Grad của loss_logits: {loss_logits.requires_grad} ")
                     
                     #make_dot(loss_logits, params={'cfn_logits': cfn_logits}).render("graph", format="png")
