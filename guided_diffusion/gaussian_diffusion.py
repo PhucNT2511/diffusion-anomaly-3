@@ -5,6 +5,7 @@ https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0
 Docstrings have been added, as well as DDIM sampling and a new collection of beta schedules.
 """
 from PIL import Image
+from torchviz import make_dot
 from torch.autograd import Variable
 import enum
 import torch.nn.functional as F
@@ -497,6 +498,9 @@ class GaussianDiffusion:
 
                     loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
                     print(f"[Iter {i}] Grad của loss_logits: {loss_logits.requires_grad} ")
+                    
+                    make_dot(loss_logits, params={'cfn_logits': cfn_logits}).render("graph", format="png")
+
                     grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
                     print(f"[Iter {i}] Grad của loss_logits: {th.unique(grad_loss_logits)}")
 
