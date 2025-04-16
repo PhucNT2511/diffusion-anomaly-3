@@ -95,9 +95,9 @@ def plot_cfn_row(cfn_updated):
         cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
 
         # Set up 1 hàng 16 cột
-        fig, axes = plt.subplots(1, 16, figsize=(24,1.5))
+        fig, axes = plt.subplots(1, cfn_sum.shape[0], figsize=(24,24.0/cfn_sum.shape[0]))
 
-        for i in range(16):
+        for i in range(cfn_sum.shape[0]):
             ax = axes[i]
             ax.imshow(cfn_sum[i], cmap='gray')
             ax.axis('off')
