@@ -501,7 +501,7 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.05)
-            lambda_eff = 0.005  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
+            lambda_eff = 0.01  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
             #cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
             #cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
@@ -510,7 +510,7 @@ class GaussianDiffusion:
             # --- 1.MSE
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
             mean_old = out["mean"] + out["variance"] * cfn
-            old_logits = classifier(mean_old, timesteps=t)
+            old_logits = classifier(mean_old, timesteps=t-1)
             '''
 
             with th.enable_grad():
@@ -530,7 +530,7 @@ class GaussianDiffusion:
                     #print('cfn_logits grad: ', cfn_logits.requires_grad)
                     #print('mean_new_logits grad: ', mean_new_logits.requires_grad)
 
-                    logits_new_logits = classifier(mean_new_logits, timesteps=t)
+                    logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
                     #print('logits_new_logits grad: ', logits_new_logits.requires_grad)
 
                     loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
@@ -546,7 +546,7 @@ class GaussianDiffusion:
                     # --- 1.MSE: Tính loss theo logits với hàm MSE ---
                     # logits mới được tính từ mean có thêm cfn_optim
                     mean_new = out["mean"] + out["variance"] * cfn_optim
-                    logits_new = classifier(mean_new, timesteps=t)
+                    logits_new = classifier(mean_new, timesteps=t-1)
 
                     loss_logits_main = th.nn.functional.mse_loss(logits_new, old_logits)
                     '''
@@ -554,7 +554,7 @@ class GaussianDiffusion:
                     
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim
-                    logits_new = classifier(mean_new, timesteps=t)
+                    logits_new = classifier(mean_new, timesteps=t-1)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
                     
                     '''
@@ -569,11 +569,11 @@ class GaussianDiffusion:
                     ### L1 - Tệ
                     #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0)) 
                     ### L1
-                    loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) #lambda_eff: 0.01
+                    #loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) #lambda_eff: 0.01
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_optim * (1 - cfn_x0[:, None, :, :]), torch.zeros_like(cfn_optim))
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
-                    #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0])]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
+                    loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
 
                     loss = loss_logits_main + lambda_eff * loss_reg_main
                     loss.backward()
