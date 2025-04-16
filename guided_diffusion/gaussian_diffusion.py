@@ -22,6 +22,8 @@ from .losses import normal_kl, discretized_gaussian_log_likelihood
 from scipy import ndimage
 from torchvision import transforms
 import matplotlib.pyplot as plt
+import os
+
 def standardize(img):
     mean = th.mean(img)
     std = th.std(img)
@@ -82,6 +84,27 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
         betas.append(min(1 - alpha_bar(t2) / alpha_bar(t1), max_beta))
     return np.array(betas)
 
+def plot_cfn_row(cfn_updated):
+        """
+        Cộng theo chiều channel và hiển thị 16 ảnh theo 1 hàng.
+        
+        Args:
+            cfn_updated: Tensor (16, 4, 256, 256)
+        """
+        # Cộng theo chiều channel
+        cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
+
+        # Set up 1 hàng 16 cột
+        fig, axes = plt.subplots(1, 16, figsize=(16 * 1.5, 1.5 * 1), dpi=100)
+
+        for i in range(16):
+            ax = axes[i]
+            ax.imshow(cfn_sum[i], cmap='hot')
+            ax.axis('off')
+            ax.set_title(f'{i}', fontsize=8)
+
+        plt.tight_layout()
+        plt.show()
 
 class ModelMeanType(enum.Enum):
     """
@@ -467,10 +490,12 @@ class GaussianDiffusion:
             out = p_mean_var.copy()
             a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
 
+            plot_cfn_row(cfn) ### visualize
+
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.AdamW([cfn_optim], lr=0.001)
+            optimizer = th.optim.AdamW([cfn_optim], lr=0.1)
             lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
             cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
@@ -517,6 +542,10 @@ class GaussianDiffusion:
 
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
             cfn_updated = cfn_optim.detach()
+
+            plot_cfn_row(cfn_updated) ### visualize
+
+            ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
             eps = eps - (1 - alpha_bar).sqrt() * cfn_updated
