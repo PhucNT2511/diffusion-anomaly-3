@@ -496,7 +496,7 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.1)
-            lambda_eff = 0.001  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
+            lambda_eff = 0.01  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
             #cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
             #cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
@@ -534,8 +534,8 @@ class GaussianDiffusion:
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
-                    loss_reg_main = th.mean(th.abs(cfn_optim))
-                    loss = loss_logits_main + lambda_eff * loss_reg_main
+                    #loss_reg_main = th.mean(th.abs(cfn_optim))
+                    loss = loss_logits_main # + lambda_eff * loss_reg_main
                     loss.backward()
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
 
