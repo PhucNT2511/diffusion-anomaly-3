@@ -84,7 +84,7 @@ baseline_filepath, _, _ = build_experiment_folder(
     experiment_name='baseline_classifier',
     log_path=args.logs_path + "/" + "epochs_" + str(args.max_epochs),
 )
-_ = restore_model(restore_fields={"model": model}, path='checkpoint/cls', device=device, best=True)
+_ = restore_model(restore_fields={"model": model}, path='/kaggle/input/brats21-dataset-15k-set-1/cls/cls', device=device, best=True)
 
 model.eval()
 
@@ -103,7 +103,7 @@ autoencoder_filepath, _, _ = build_experiment_folder(
     log_path=args.logs_path + "/" + "epochs_" + str(args.max_epochs),
 
 )
-_ = restore_model(restore_fields={"model": ae}, path='checkpoint/autoencoder', device=device, best=True)
+_ = restore_model(restore_fields={"model": ae}, path='/kaggle/input/brats21-dataset-15k-set-1/autoencoder/autoencoder', device=device, best=True)
 
 ae.eval()
 
