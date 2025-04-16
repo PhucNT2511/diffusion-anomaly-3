@@ -473,6 +473,9 @@ class GaussianDiffusion:
             optimizer = th.optim.AdamW([cfn_optim], lr=0.001)
             lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
+            cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
+            cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
+
             with th.enable_grad():
                 for param in classifier.parameters():
                     param.requires_grad = False
@@ -481,14 +484,13 @@ class GaussianDiffusion:
                     optimizer.zero_grad()
 
                     # --- Forward pass riêng cho loss_reg ---
-                    cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
                     loss_reg = th.mean(th.abs(cfn_reg))
                     grad_loss_reg = th.autograd.grad(loss_reg, cfn_reg, retain_graph=True)[0]
 
                     print(f"[Iter {i}] Grad của loss_reg: {loss_reg.requires_grad} - {th.unique(grad_loss_reg)}")
 
                     # --- Forward pass riêng cho loss_logits ---
-                    cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
+                    
                     mean_new_logits = out["mean"] + out["variance"] * cfn_logits
                     print('cfn_logits grad: ', cfn_logits.requires_grad)
                     print('mean_new_logits grad: ', mean_new_logits.requires_grad)
