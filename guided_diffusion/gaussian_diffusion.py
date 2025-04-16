@@ -505,7 +505,7 @@ class GaussianDiffusion:
                 
                 for i in range(20):
                     optimizer.zero_grad()
-
+                    '''
                     # --- Forward pass riêng cho loss_reg ---
                     loss_reg = th.mean(th.abs(cfn_reg))
                     grad_loss_reg = th.autograd.grad(loss_reg, cfn_reg, retain_graph=True)[0]
@@ -528,6 +528,7 @@ class GaussianDiffusion:
 
                     grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
                     #print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits}")
+                    '''
 
                     # --- Tính loss tổng trên đồ thị chính với cfn_optim ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim
