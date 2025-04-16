@@ -187,6 +187,7 @@ for loader in [train_loader, val_loader]:
             for j in range(inputs.shape[0]):
                 for i, level in enumerate(['flair', 't1', 't2', 't1ce']):
                     path = os.path.join(saliency_root, name[j][14:-4] + level + '.png')
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
                     imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,i, :, :]))
 
 ########## 
