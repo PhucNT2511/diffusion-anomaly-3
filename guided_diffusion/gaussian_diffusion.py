@@ -474,9 +474,9 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.001)
-            lambda_eff = 0.1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
+            lambda_eff = 10  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
 
-            with th.enable_grad():
+            with th.enable_grad(): ## Bắt buộc có vì đang trong môi trường torch.no_grads
 
                 for i in range(20):
                     optimizer.zero_grad()
@@ -486,20 +486,29 @@ class GaussianDiffusion:
                     print('mean_new grad: ', mean_new.requires_grad)
                     logits_new = classifier(mean_new, timesteps=t-1)
 
-                    # Hàm mất mát: giữ logits không thay đổi và regularization L1 cho cfn_optim
+                    # Tính loss cho từng thành phần
                     loss_logits = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none")
                     loss_logits = loss_logits.mean()
                     loss_reg = th.mean(th.abs(cfn_optim))
                     loss = loss_logits + lambda_eff * loss_reg
 
-                    # In loss
+                    # In ra giá trị loss
                     print(f"[Iter {i}] loss_logits: {loss_logits.item():.6f}, loss_reg: {loss_reg.item():.6f}, total_loss: {loss.item():.6f}")
-                    print(f"[Iter {i}] loss_logits: {loss_logits.requires_grad}, loss_reg: {loss_reg.requires_grad}")
-                        
-                    # Tính gradient chỉ cho cfn_optim (chỉ có biến này có requires_grad=True)
-                    loss.backward()
-                    print(f"[Iter {i}] Grad của loss (cfn_optim.grad): {cfn_optim.grad.detach()}")
+                    print(f"[Iter {i}] loss_logits.requires_grad: {loss_logits.requires_grad}, loss_reg.requires_grad: {loss_reg.requires_grad}")
+
+                    # Tính gradient riêng cho từng loss component sử dụng torch.autograd.grad
+                    grad_loss_logits = th.autograd.grad(loss_logits, cfn_optim, retain_graph=True)[0]
+                    grad_loss_reg = th.autograd.grad(loss_reg, cfn_optim, retain_graph=True)[0]
+
+                    print(f"[Iter {i}] Grad của loss_logits đối với cfn_optim: {grad_loss_logits.detach()}")
+                    print(f"[Iter {i}] Grad của loss_reg đối với cfn_optim: {grad_loss_reg.detach()}")
+
+                    # Nếu bạn muốn cập nhật biến tối ưu, sau đó cộng gradient thành phần lại theo công thức loss
+                    # Bạn có thể thực hiện backward trên toàn bộ loss sau hoặc tự cập nhật với optimizer.step()
+                    loss.backward()  # Nếu cần cập nhật theo gradient của toàn bộ loss
+                    print(f"[Iter {i}] Grad tổng của cfn_optim sau backward: {cfn_optim.grad.detach()}")
                     optimizer.step()
+
 
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
             cfn_updated = cfn_optim.detach()
