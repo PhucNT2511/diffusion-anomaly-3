@@ -510,7 +510,7 @@ class GaussianDiffusion:
             # --- 1.MSE
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
             mean_old = out["mean"] + out["variance"] * cfn
-            old_logits = classifier(mean_old, timesteps=t-1)
+            old_logits = classifier(mean_old, timesteps=t)
             '''
 
             with th.enable_grad():
@@ -530,7 +530,7 @@ class GaussianDiffusion:
                     #print('cfn_logits grad: ', cfn_logits.requires_grad)
                     #print('mean_new_logits grad: ', mean_new_logits.requires_grad)
 
-                    logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
+                    logits_new_logits = classifier(mean_new_logits, timesteps=t)
                     #print('logits_new_logits grad: ', logits_new_logits.requires_grad)
 
                     loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
@@ -546,7 +546,7 @@ class GaussianDiffusion:
                     # --- 1.MSE: Tính loss theo logits với hàm MSE ---
                     # logits mới được tính từ mean có thêm cfn_optim
                     mean_new = out["mean"] + out["variance"] * cfn_optim
-                    logits_new = classifier(mean_new, timesteps=t-1)
+                    logits_new = classifier(mean_new, timesteps=t)
 
                     loss_logits_main = th.nn.functional.mse_loss(logits_new, old_logits)
                     '''
@@ -554,7 +554,7 @@ class GaussianDiffusion:
                     
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim
-                    logits_new = classifier(mean_new, timesteps=t-1)
+                    logits_new = classifier(mean_new, timesteps=t)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
                     
                     '''
