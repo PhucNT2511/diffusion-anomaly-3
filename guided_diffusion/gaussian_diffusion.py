@@ -489,8 +489,8 @@ class GaussianDiffusion:
         else:
             out = p_mean_var.copy()
             a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
-            cfn_x0 = model_kwargs['grad_x0']
-            #cfn_x0 = model_kwargs['mask']
+            #cfn_x0 = model_kwargs['grad_x0']
+            cfn_x0 = model_kwargs['mask']
 
             plot_cfn_row(cfn) ### visualize
 
@@ -536,8 +536,8 @@ class GaussianDiffusion:
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
-                    loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0))
-                    #loss_reg_main = th.mean(th.abs(th.abs(cfn_optim) - cfn_x0[:, None, :, :])) ### 
+                    #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0))
+                    loss_reg_main = th.mean(th.abs(th.abs(cfn_optim) - cfn_x0[:, None, :, :])) ### 
                     loss = loss_logits_main + lambda_eff * loss_reg_main
                     loss.backward()
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
