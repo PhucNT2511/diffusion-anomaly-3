@@ -502,12 +502,13 @@ class GaussianDiffusion:
 
             #cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
             #cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
-
+            
+            '''
             # --- 1.MSE
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
             mean_old = out["mean"] + out["variance"] * cfn
             old_logits = classifier(mean_old, timesteps=t-1)
-            
+            '''
 
             with th.enable_grad():
                 
@@ -538,25 +539,26 @@ class GaussianDiffusion:
                     #print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits}")
                     '''
 
-                    
+                    '''
                     # --- 1.MSE: Tính loss theo logits với hàm MSE ---
                     # logits mới được tính từ mean có thêm cfn_optim
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
 
                     loss_logits_main = th.nn.functional.mse_loss(logits_new, old_logits)
-                    
                     '''
+                    
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
-                    '''
+                    
 
                     # --- 2.Regularization: Tính loss Hiệu chỉnh
                     #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0))
-                    loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) ### 
-
+                    #loss_reg_main = th.mean(th.abs(cfn_optim*(1-cfn_x0[:, None, :, :]))) ### L1
+                    ### L2
+                    loss_reg_main = th.nn.functional.mse_loss(cfn_optim * (1 - cfn_x0[:, None, :, :]), torch.zeros_like(cfn_optim))
 
                     loss = loss_logits_main + lambda_eff * loss_reg_main
                     loss.backward()
