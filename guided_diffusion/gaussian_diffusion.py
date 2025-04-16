@@ -475,28 +475,31 @@ class GaussianDiffusion:
             with th.enable_grad():
                 for param in classifier.parameters():
                     param.requires_grad = False
+
                 for i in range(20):
                     optimizer.zero_grad()
 
-                    # Tính mean mới với cfn_optim được cập nhật
-                    mean_new = out["mean"] + out["variance"] * cfn_optim
-                    print('mean_new grad: ', mean_new.requires_grad)
-                    logits_new = classifier(mean_new, timesteps=t-1)
-
-                    # Hàm mất mát: giữ logits không thay đổi và regularization L1 cho cfn_optim
-                    loss_logits = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none")
-                    loss_logits = loss_logits.mean()
-                    loss_reg = th.mean(th.abs(cfn_optim))
-                    loss = loss_logits + lambda_eff * loss_reg
-
-                    with torch.no_grad():
-                        grad_loss_logits = torch.autograd.grad(loss_logits, cfn_optim, retain_graph=True)[0]
-                        grad_loss_reg = torch.autograd.grad(loss_reg, cfn_optim, retain_graph=True)[0]
-
+                    # --- Forward pass riêng cho loss_logits ---
+                    cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
+                    mean_new_logits = out["mean"] + out["variance"] * cfn_logits
+                    logits_new_logits = classifier(mean_new_logits, timesteps=t-1)
+                    loss_logits = F.cross_entropy(logits_new_logits, model_kwargs['y'], reduction="none").mean()
+                    grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
                     print(f"[Iter {i}] Grad của loss_logits: {th.unique(grad_loss_logits)}")
+
+                    # --- Forward pass riêng cho loss_reg ---
+                    cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
+                    loss_reg = th.mean(th.abs(cfn_reg))
+                    grad_loss_reg = th.autograd.grad(loss_reg, cfn_reg, retain_graph=True)[0]
                     print(f"[Iter {i}] Grad của loss_reg: {th.unique(grad_loss_reg)}")
 
-                    # Sau đó thực hiện backward tổng hợp trên loss
+                    # --- Tính loss tổng trên đồ thị chính với cfn_optim ---
+                    mean_new = out["mean"] + out["variance"] * cfn_optim
+                    logits_new = classifier(mean_new, timesteps=t-1)
+                    loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
+                    loss_reg_main = th.mean(th.abs(cfn_optim))
+                    loss = loss_logits_main + lambda_eff * loss_reg_main
+
                     loss.backward()
                     print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
 
@@ -513,6 +516,7 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
             return out, cfn_updated
+
 
             '''
             Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
