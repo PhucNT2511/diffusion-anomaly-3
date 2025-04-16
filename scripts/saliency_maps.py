@@ -149,7 +149,7 @@ def compute_saliency(z, im2):
 
 
 ####################### Folder lưu saliency
-saliency_root = 'saliency_maps'
+saliency_root = '/kaggle/working/diffusion-anomaly-3/saliency_maps'
 
 if not os.path.exists(saliency_root):
     os.makedirs(saliency_root)
@@ -186,7 +186,7 @@ for loader in [train_loader, val_loader]:
             ############## Dimage tìm ra có 4 chiều
             for j in range(inputs.shape[0]):
                 for i, level in enumerate(['flair', 't1', 't2', 't1ce']):
-                    path = os.path.join(saliency_root, name[j][40:-4] + level + '.png')
+                    path = os.path.join(saliency_root, name[j][14:-4] + level + '.png')
                     imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,i, :, :]))
 
 ########## 
