@@ -505,15 +505,17 @@ class GaussianDiffusion:
             lambda_eff = 100  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
             
             ###
+            '''
             mean_old = out["mean"] + out["variance"] * cfn * 100
             cfn_t_minus_1_old,_ = cond_fn2(mean_old, self._scale_timesteps(t-1).long(), **model_kwargs)
-
             '''
+
+            
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
             mean_old = out["mean"] + out["variance"] * cfn * 100
             logits_old = classifier(mean_old, timesteps=t-1)
             old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
-            '''
+            
 
             with th.enable_grad():
                 
@@ -565,7 +567,7 @@ class GaussianDiffusion:
                     logits_new = classifier(mean_new, timesteps=t_0)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     '''
-                    '''
+                    
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
@@ -573,7 +575,7 @@ class GaussianDiffusion:
                     
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
                     loss_margin = torch.relu(new_loss - old_loss) ##### hoặc có thể so với loss trong trường hợp ko tinh chỉnh chút nào cả; tức là lúc nào cũng  mang theo một bộ nhớ bên mình
-                    '''
+                    
 
                     ### KL loss
                     '''
@@ -583,12 +585,15 @@ class GaussianDiffusion:
                     loss_kl = F.kl_div(logp_new, p_old, reduction="batchmean")
                     '''
                     
+                    '''
                     ### MSE_Loss - ý là khi thay đổi cfn thì ảnh mới tạo ra và ảnh cũ đều có đạo hàm ngược (vùng tiềm năng cần thay đổi) khá giống nhau. Kiểu tôi đã đổi cfn để thay đổi ít rồi, mà cuối cùng cls vẫn coi 2 chúng ta gần giống nhau về mặt cần thay đổi.
                     mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     cfn_t_minus_1_new,_ = cond_fn2(mean_new, self._scale_timesteps(t-1).long(), **model_kwargs)
                     mse_loss = th.nn.functional.mse_loss(cfn_t_minus_1_new, cfn_t_minus_1_old)
                     print('mse_loss_grad', mse_loss.requires_grad)
-                    loss_logits_main = mse_loss
+                    '''
+                    
+                    loss_logits_main = loss_margin
 
                     # ---------------------------------------------------------------------- #
 
