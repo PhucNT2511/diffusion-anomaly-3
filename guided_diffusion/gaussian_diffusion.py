@@ -501,7 +501,7 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0)
+            optimizer = th.optim.SGD([cfn_optim], lr=0.01, momentum=0, weight_decay=0)
             lambda_eff1 = 100
             lambda_eff2 = 10000
 
@@ -605,13 +605,13 @@ class GaussianDiffusion:
                     ### Cố gắng đảm bảo cfn chỉ giữ lại thông tin quan trọng - có thể dùng bias là mask của cls_0
                     
                     ### L1 
-                    loss_reg_main = th.mean(th.abs(cfn_optim))
+                    #loss_reg_main = th.mean(th.abs(cfn_optim))
 
                     ### L1
                     #loss_reg_main = th.mean(th.abs(cfn_optim*cfn_x0)) #lambda_eff: 0.01
 
                     ### L2
-                    #loss_reg_main = th.nn.functional.mse_loss(cfn_optim * cfn_x0, torch.zeros_like(cfn_optim))
+                    loss_reg_main = th.nn.functional.mse_loss(cfn_optim, torch.zeros_like(cfn_optim))
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
