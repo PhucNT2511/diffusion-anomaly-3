@@ -501,7 +501,7 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0.9, weight_decay=1e-4)
+            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0.9, weight_decay=0)
             lambda_eff = 10000  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
             
             ###
@@ -512,10 +512,11 @@ class GaussianDiffusion:
 
             
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
+            '''
             mean_old = out["mean"] + out["variance"] * cfn * 100
             logits_old = classifier(mean_old, timesteps=t-1)
             old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
-            
+            '''
 
             with th.enable_grad():
                 
@@ -568,14 +569,16 @@ class GaussianDiffusion:
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     '''
                     
-                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
+                    
+                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t --- Margin loss hoặc Dùng trực tiếp
                     mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
                     new_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     
+                    '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
                     loss_margin = torch.relu(new_loss - old_loss) ##### hoặc có thể so với loss trong trường hợp ko tinh chỉnh chút nào cả; tức là lúc nào cũng  mang theo một bộ nhớ bên mình
-                    
+                    '''
 
                     ### KL loss
                     '''
@@ -593,7 +596,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = loss_margin
+                    loss_logits_main = new_loss
 
                     # ---------------------------------------------------------------------- #
 
