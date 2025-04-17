@@ -502,7 +502,7 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.001)
-            lambda_eff = 0.01  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
+            lambda_eff = 1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
             
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
             mean_old = out["mean"] + out["variance"] * cfn * 100
