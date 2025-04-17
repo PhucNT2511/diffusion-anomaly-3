@@ -99,7 +99,7 @@ def plot_cfn_row(cfn_updated):
 
         for i in range(cfn_sum.shape[0]):
             ax = axes[i]
-            ax.imshow(cfn_sum[i], cmap='gray')
+            ax.imshow(cfn_sum[i], cmap='jet')
             ax.axis('off')
             ax.set_title(f'{i}', fontsize=8)
 
