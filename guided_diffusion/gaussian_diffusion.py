@@ -502,7 +502,7 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.SGD([cfn_optim], lr=0.01, momentum=0.9, weight_decay=1e-4)
-            lambda_eff = 100  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
+            lambda_eff = 10000  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
             
             ###
             '''
