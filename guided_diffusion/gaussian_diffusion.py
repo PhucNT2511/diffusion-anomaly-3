@@ -502,12 +502,18 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.001)
-            lambda_eff = 1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
+            lambda_eff = 100  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
             
+            ###
+            mean_old = out["mean"] + out["variance"] * cfn * 100
+            cfn_t_minus_1_old,_ = cond_fn2(mean_old, self._scale_timesteps(t-1).long(), **model_kwargs)
+
+            '''
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
             mean_old = out["mean"] + out["variance"] * cfn * 100
             logits_old = classifier(mean_old, timesteps=t-1)
             old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
+            '''
 
             with th.enable_grad():
                 
@@ -544,7 +550,7 @@ class GaussianDiffusion:
 
                     #---- Loss_1: Loss_logits -----
                     '''
-                    # --- 1.MSE: Tính loss theo logits với hàm MSE ---
+                    # --- 1.MSE: Tính loss theo logits với hàm MSE --- Tôi đã thay đổi cfn và ép đầu ra của chúng ta như nhau, điều này khá tệ, vì 2 logits đầu ra dù giống nhau nhưng những layer trước đó có nhiều nơ-ron, có thể dù cho đầu ra cùng xác suất nhưng chúng đang chú ý vào những vùng khác nhau, có thể xa dời trung tâm
                     # logits mới được tính từ mean có thêm cfn_optim
                     mean_new = out["mean"] + out["variance"] * cfn_optim
                     logits_new = classifier(mean_new, timesteps=t-1)
@@ -559,14 +565,15 @@ class GaussianDiffusion:
                     logits_new = classifier(mean_new, timesteps=t_0)
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     '''
-
+                    '''
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
                     mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
                     new_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     
-                    ### Margin_loss
+                    ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
                     loss_margin = torch.relu(new_loss - old_loss) ##### hoặc có thể so với loss trong trường hợp ko tinh chỉnh chút nào cả; tức là lúc nào cũng  mang theo một bộ nhớ bên mình
+                    '''
 
                     ### KL loss
                     '''
@@ -575,12 +582,19 @@ class GaussianDiffusion:
                     # KL divergence batchmean
                     loss_kl = F.kl_div(logp_new, p_old, reduction="batchmean")
                     '''
-
-                    loss_logits_main = loss_margin
+                    
+                    ### MSE_Loss - ý là khi thay đổi cfn thì ảnh mới tạo ra và ảnh cũ đều có đạo hàm ngược (vùng tiềm năng cần thay đổi) khá giống nhau. Kiểu tôi đã đổi cfn để thay đổi ít rồi, mà cuối cùng cls vẫn coi 2 chúng ta gần giống nhau về mặt cần thay đổi.
+                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
+                    cfn_t_minus_1_new,_ = cond_fn2(mean_new, self._scale_timesteps(t-1).long(), **model_kwargs)
+                    mse_loss = th.nn.functional.mse_loss(cfn_t_minus_1_new, cfn_t_minus_1_old)
+                    print('mse_loss_grad', mse_loss.requires_grad)
+                    loss_logits_main = mse_loss
 
                     # ---------------------------------------------------------------------- #
 
-                    # ----- Loss_2. Regularization Loss - Tính loss Hiệu chỉnh -----
+                    # ----- Loss_2. Regularization Loss - Tính loss Hiệu chỉnh ----- 
+                    ### Cố gắng đảm bảo cfn chỉ giữ lại thông tin quan trọng - có thể dùng bias là mask của cls_0
+                    
                     ### L1 - Tệ
                     #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0)) 
 
