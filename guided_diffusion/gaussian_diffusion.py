@@ -501,23 +501,22 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.AdamW([cfn_optim], lr=0.05)
-            lambda_eff = 1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization
-
-            #cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
-            #cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
+            lambda_eff = 1  # Hệ số cân bằng giữa việc giữ logits và phạt regularization           
             
-            '''
-            # --- 1.MSE
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
-            mean_old = out["mean"] + out["variance"] * cfn
-            old_logits = classifier(mean_old, timesteps=t-1)
-            '''
+            mean_old = out["mean"] + out["variance"] * cfn * 100
+            logits_old = classifier(mean_old, timesteps=t-1)
+            old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
 
             with th.enable_grad():
                 
                 for i in range(20):
                     optimizer.zero_grad()
                     '''
+                    ##### Test grad để chọn lambda #####
+
+                    cfn_reg = cfn_optim.detach().clone().requires_grad_(True)
+                    cfn_logits = cfn_optim.detach().clone().requires_grad_(True)
                     # --- Forward pass riêng cho loss_reg ---
                     loss_reg = th.mean(th.abs(cfn_reg))
                     grad_loss_reg = th.autograd.grad(loss_reg, cfn_reg, retain_graph=True)[0]
@@ -542,6 +541,7 @@ class GaussianDiffusion:
                     #print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits}")
                     '''
 
+                    #---- Loss_1: Loss_logits -----
                     '''
                     # --- 1.MSE: Tính loss theo logits với hàm MSE ---
                     # logits mới được tính từ mean có thêm cfn_optim
@@ -551,21 +551,35 @@ class GaussianDiffusion:
                     loss_logits_main = th.nn.functional.mse_loss(logits_new, old_logits)
                     '''
                     
-                    
-                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
-                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
-                    logits_new = classifier(mean_new, timesteps=t-1)
-                    loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
-                    
                     '''
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua predicted x_0 --- Tệ do predicted image ko chuẩn
                     eps_i = eps - (1 - alpha_bar).sqrt() * cfn_optim
                     mean_new = self._predict_xstart_from_eps(x, t, eps_i)
                     logits_new = classifier(mean_new, timesteps=t_0)
-                    loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="none").mean()
+                    loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     '''
 
-                    # --- 2.Regularization: Tính loss Hiệu chỉnh
+                    # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t ---
+                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
+                    logits_new = classifier(mean_new, timesteps=t-1)
+                    new_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    
+                    ### Margin_loss
+                    loss_margin = torch.relu(new_loss - old_loss)
+
+                    ### KL loss
+                    '''
+                    p_old = F.softmax(logits_old.detach(), dim=-1)
+                    logp_new = F.log_softmax(logits_new, dim=-1)
+                    # KL divergence batchmean
+                    loss_kl = F.kl_div(logp_new, p_old, reduction="batchmean")
+                    '''
+
+                    loss_logits_main = loss_margin
+
+                    # ---------------------------------------------------------------------- #
+
+                    # ----- Loss_2. Regularization Loss - Tính loss Hiệu chỉnh -----
                     ### L1 - Tệ
                     #loss_reg_main = th.mean(th.abs(cfn_optim - cfn_x0)) 
 
@@ -577,7 +591,9 @@ class GaussianDiffusion:
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
-
+                    # ---------------------------------------------------------------------- #
+                    
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     loss = loss_logits_main + lambda_eff * loss_reg_main
                     loss.backward()
                     
