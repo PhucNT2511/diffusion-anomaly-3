@@ -608,8 +608,11 @@ class GaussianDiffusion:
 
                     #  /Max normalize RIÊNG cho mỗi channel
                     # dims=(2,3) tức H và W, giữ nguyên batch và channel
-                    cfn_max = cfn_optim.amax(dim=(2,3), keepdim=True)  # [B, C, 1, 1]
-                    cfn_norm = cfn_optim / cfn_max          # [B, C, H, W]
+                    cfn_max = cfn_optim.abs().amax(dim=(2, 3), keepdim=True)
+
+                    # Tránh chia cho 0 bằng cách cộng epsilon
+                    eps_ = 1e-8
+                    cfn_norm = cfn_optim / (cfn_max + eps_)         # [B, C, H, W]
 
                     ### L1 
                     #loss_reg_main = th.mean(th.abs(cfn_norm))
