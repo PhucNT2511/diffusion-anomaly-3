@@ -513,11 +513,11 @@ class GaussianDiffusion:
 
             
             # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
-            '''
+            
             mean_old = out["mean"] + out["variance"] * cfn * 100
             logits_old = classifier(mean_old, timesteps=t-1)
-            old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
-            '''
+            #old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
+            
 
             with th.enable_grad():
                 
@@ -554,14 +554,14 @@ class GaussianDiffusion:
                     
                     ###################################################################################################
                     #####################################---- Loss_1: Loss_logits -----################################
-                    '''
+                    
                     # --- 1.MSE: Tính loss theo logits với hàm MSE --- Tôi đã thay đổi cfn và ép đầu ra của chúng ta như nhau, điều này khá tệ, vì 2 logits đầu ra dù giống nhau nhưng những layer trước đó có nhiều nơ-ron, có thể dù cho đầu ra cùng xác suất nhưng chúng đang chú ý vào những vùng khác nhau, có thể xa dời trung tâm
                     # logits mới được tính từ mean có thêm cfn_optim
-                    mean_new = out["mean"] + out["variance"] * cfn_optim
+                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
 
-                    loss_logits_main = th.nn.functional.mse_loss(logits_new, old_logits)
-                    '''
+                    mse_loss = th.nn.functional.mse_loss(logits_new, logits_old)
+                    
                     
                     '''
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua predicted x_0 --- Tệ do predicted image ko chuẩn
@@ -571,12 +571,13 @@ class GaussianDiffusion:
                     loss_logits_main = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     '''
                     
-                    
+                    '''
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t --- Margin loss hoặc Dùng trực tiếp
                     mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
                     new_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    
+                    '''
+
                     '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
                     loss_margin = torch.relu(new_loss - old_loss) ##### hoặc có thể so với loss trong trường hợp ko tinh chỉnh chút nào cả; tức là lúc nào cũng  mang theo một bộ nhớ bên mình
@@ -598,7 +599,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = new_loss
+                    loss_logits_main = mse_loss
 
                     # --------------------------------------------------------------------------------------------------- #
 
@@ -609,11 +610,10 @@ class GaussianDiffusion:
                     #  /Max normalize RIÊNG cho mỗi channel
                     # dims=(2,3) tức H và W, giữ nguyên batch và channel
                     cfn_max = cfn_optim.abs().amax(dim=(2, 3), keepdim=True)
-
                     # Tránh chia cho 0 bằng cách cộng epsilon
                     eps_ = 1e-8
                     cfn_norm = cfn_optim / (cfn_max + eps_)         # [B, C, H, W]
-                    cfn_norm = cfn_norm*cfn_x0[:,None,:,:]
+                    cfn_norm = cfn_norm * cfn_x0[:,None,:,:]
 
                     ### L1 
                     loss_reg_main = th.mean(th.abs(cfn_norm))
