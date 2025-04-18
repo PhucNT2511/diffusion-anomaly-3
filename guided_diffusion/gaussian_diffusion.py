@@ -616,10 +616,10 @@ class GaussianDiffusion:
                     cfn_norm = cfn_norm*cfn_x0[:,None,:,:]
 
                     ### L1 
-                    #loss_reg_main = th.mean(th.abs(cfn_norm))
+                    loss_reg_main = th.mean(th.abs(cfn_norm))
 
                     ### L2
-                    loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
+                    #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
