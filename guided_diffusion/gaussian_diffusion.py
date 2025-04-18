@@ -606,21 +606,19 @@ class GaussianDiffusion:
                     ##############  ----- Loss_2. Regularization Loss - Tính loss Hiệu chỉnh ----- ########################
                     ### Cố gắng đảm bảo cfn chỉ giữ lại thông tin quan trọng - có thể dùng bias là mask của cls_0
 
-                    #  Min–Max normalize RIÊNG cho mỗi channel
+                    #  /Max normalize RIÊNG cho mỗi channel
                     # dims=(2,3) tức H và W, giữ nguyên batch và channel
-                    cfn_min = cfn_optim.amin(dim=(2,3), keepdim=True)  # [B, C, 1, 1]
                     cfn_max = cfn_optim.amax(dim=(2,3), keepdim=True)  # [B, C, 1, 1]
-                    denom = (cfn_max - cfn_min).clamp(min=eps)
-                    cfn_norm = (cfn_optim - cfn_min) / denom           # [B, C, H, W]
+                    cfn_norm = cfn_optim / cfn_max          # [B, C, H, W]
 
                     ### L1 
                     #loss_reg_main = th.mean(th.abs(cfn_norm))
 
                     ### L1
-                    loss_reg_main = th.mean(th.abs(cfn_norm*cfn_x0)) #lambda_eff: 0.01
+                    #loss_reg_main = th.mean(th.abs(cfn_norm*cfn_x0)) #lambda_eff: 0.01
 
                     ### L2
-                    #loss_reg_main = th.nn.functional.mse_loss(cfn_optim, torch.zeros_like(cfn_optim))
+                    loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
