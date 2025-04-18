@@ -620,7 +620,7 @@ class GaussianDiffusion:
                     print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
 
-                    loss = lambda_eff1 * loss_logits_main + lambda_eff2 * loss_reg_main
+                    loss = lambda_eff2 * loss_reg_main # + lambda_eff1 * loss_logits_main
                     loss.backward()
                     
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
