@@ -614,10 +614,10 @@ class GaussianDiffusion:
                     cfn_norm = (cfn_optim - cfn_min) / denom           # [B, C, H, W]
 
                     ### L1 
-                    loss_reg_main = th.mean(th.abs(cfn_norm))
+                    #loss_reg_main = th.mean(th.abs(cfn_norm))
 
                     ### L1
-                    #loss_reg_main = th.mean(th.abs(cfn_optim*cfn_x0)) #lambda_eff: 0.01
+                    loss_reg_main = th.mean(th.abs(cfn_norm*cfn_x0)) #lambda_eff: 0.01
 
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_optim, torch.zeros_like(cfn_optim))
