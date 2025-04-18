@@ -493,8 +493,8 @@ class GaussianDiffusion:
             out = p_mean_var.copy()
             cfn, a = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             #cfn_x0 = model_kwargs['grad_x0']
-            #cfn_x0 = 1 - model_kwargs["mask"]
-            cfn_x0 = model_kwargs["sample_mask"]
+            cfn_x0 = 1 - model_kwargs["mask"][:,None,:,:]
+            #cfn_x0 = model_kwargs["sample_mask"]
 
             plot_cfn_row(cfn) ### visualize
 
@@ -502,7 +502,7 @@ class GaussianDiffusion:
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0)
-            lambda_eff1 = 100
+            lambda_eff1 = 10000
             lambda_eff2 = 0.01
 
             ###
@@ -611,8 +611,8 @@ class GaussianDiffusion:
                     # dims=(2,3) tức H và W, giữ nguyên batch và channel
                     cfn_max = cfn_optim.abs().amax(dim=(2, 3), keepdim=True)
                     # Tránh chia cho 0 bằng cách cộng epsilon
-                    eps_ = 1e-8
-                    cfn_norm = cfn_optim / (cfn_max + eps_)         # [B, C, H, W]
+                    #eps_ = 1e-8
+                    cfn_norm = cfn_optim / (cfn_max) #+ eps_)         # [B, C, H, W]
                     cfn_norm = cfn_norm * cfn_x0
 
                     ### L1 
