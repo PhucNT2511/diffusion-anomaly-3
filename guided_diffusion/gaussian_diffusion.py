@@ -501,9 +501,9 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=10, momentum=0, weight_decay=0)
+            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0)
             lambda_eff1 = 1
-            lambda_eff2 = 10000
+            lambda_eff2 = 10
 
             ###
             '''
@@ -551,8 +551,9 @@ class GaussianDiffusion:
                     grad_loss_logits = th.autograd.grad(loss_logits, cfn_logits, retain_graph=True)[0]
                     #print(f"[Iter {i}] Grad của loss_logits: {grad_loss_logits}")
                     '''
-
-                    #---- Loss_1: Loss_logits -----
+                    
+                    ###################################################################################################
+                    #####################################---- Loss_1: Loss_logits -----################################
                     '''
                     # --- 1.MSE: Tính loss theo logits với hàm MSE --- Tôi đã thay đổi cfn và ép đầu ra của chúng ta như nhau, điều này khá tệ, vì 2 logits đầu ra dù giống nhau nhưng những layer trước đó có nhiều nơ-ron, có thể dù cho đầu ra cùng xác suất nhưng chúng đang chú ý vào những vùng khác nhau, có thể xa dời trung tâm
                     # logits mới được tính từ mean có thêm cfn_optim
@@ -599,13 +600,21 @@ class GaussianDiffusion:
                     
                     loss_logits_main = new_loss
 
-                    # ---------------------------------------------------------------------- #
+                    # --------------------------------------------------------------------------------------------------- #
 
-                    # ----- Loss_2. Regularization Loss - Tính loss Hiệu chỉnh ----- 
+                    #######################################################################################################
+                    ##############  ----- Loss_2. Regularization Loss - Tính loss Hiệu chỉnh ----- ########################
                     ### Cố gắng đảm bảo cfn chỉ giữ lại thông tin quan trọng - có thể dùng bias là mask của cls_0
-                    
+
+                    #  Min–Max normalize RIÊNG cho mỗi channel
+                    # dims=(2,3) tức H và W, giữ nguyên batch và channel
+                    cfn_min = cfn_optim.amin(dim=(2,3), keepdim=True)  # [B, C, 1, 1]
+                    cfn_max = cfn_optim.amax(dim=(2,3), keepdim=True)  # [B, C, 1, 1]
+                    denom = (cfn_max - cfn_min).clamp(min=eps)
+                    cfn_norm = (cfn_optim - cfn_min) / denom           # [B, C, H, W]
+
                     ### L1 
-                    loss_reg_main = th.mean(th.abs(cfn_optim))
+                    loss_reg_main = th.mean(th.abs(cfn_norm))
 
                     ### L1
                     #loss_reg_main = th.mean(th.abs(cfn_optim*cfn_x0)) #lambda_eff: 0.01
