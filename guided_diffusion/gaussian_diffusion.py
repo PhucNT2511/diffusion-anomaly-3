@@ -576,7 +576,7 @@ class GaussianDiffusion:
                     
                     
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t --- Margin loss hoặc Dùng trực tiếp
-                    mean_new = out["mean"] + out["variance"] * cfn_optim *  model_kwargs["mask"][:,None,:,:] * 100
+                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
                     bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     
@@ -612,20 +612,19 @@ class GaussianDiffusion:
 
                     #  /Max normalize RIÊNG cho mỗi channel
                     # dims=(2,3) tức H và W, giữ nguyên batch và channel
-                    #cfn_max = cfn_optim.abs().amax(dim=(2, 3), keepdim=True)
-                    # Tránh chia cho 0 bằng cách cộng epsilon
-                    #eps_ = 1e-8
-                    #cfn_norm = cfn_optim / (cfn_max) #+ eps_)         # [B, C, H, W]
-                    #cfn_norm = cfn_norm * cfn_x0
+                    cfn_max = cfn_optim.abs().amax(dim=(2, 3), keepdim=True)
+                    # Tránh chia cho 0 bằng cách cộng epsilon: eps_ = 1e-8
+                    cfn_norm = cfn_optim / (cfn_max) #        # [B, C, H, W]
+                    cfn_norm = cfn_norm * cfn_x0
 
                     ### L1 
-                    #loss_reg_main = th.mean(th.abs(cfn_norm))
+                    loss_reg_main = th.mean(th.abs(cfn_norm))
 
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
 
                     ### L2
-                    loss_reg_main = th.nn.functional.mse_loss(mean_new , x_deterministic)
+                    #loss_reg_main = th.nn.functional.mse_loss(mean_new , x_deterministic)
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
@@ -649,7 +648,7 @@ class GaussianDiffusion:
             ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
-            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated *  model_kwargs["mask"][:,None,:,:] * 100
+            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
             out["mean"], _, _ = self.q_posterior_mean_variance(
