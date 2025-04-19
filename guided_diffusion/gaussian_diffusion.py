@@ -461,7 +461,7 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, 
+    def condition_score2(self, cond_fn, p_mean_var, x, x_deterministic, t, model_kwargs=None, classifier=None, 
                      t_set=[], cond_fn2=None):
         """
         Compute what the p_mean_variance output would have been, should the
@@ -501,7 +501,7 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=100.0, momentum=0, weight_decay=0) ########
+            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
             lambda_eff1 = 10000
             lambda_eff2 = 0.01
 
@@ -624,15 +624,18 @@ class GaussianDiffusion:
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
 
+                    ### L2
+                    loss_reg_main = th.nn.functional.mse_loss(mean_new , x_deterministic)
+
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
 
-                    loss = loss_logits_main         #lambda_eff2 * loss_reg_main  + lambda_eff1 * loss_logits_main
-                    print(f'Time {int(t[0])} - loss: {loss}')
+                    loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main  
+                    #print(f'Time {int(t[0])} - loss: {loss}')
                     loss.backward()
                     
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
