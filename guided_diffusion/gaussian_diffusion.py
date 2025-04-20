@@ -552,7 +552,7 @@ class GaussianDiffusion:
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t --- Margin loss hoặc Dùng trực tiếp
                     #mean_new = out["mean"] + out["variance"] * cfn_optim * 100
 
-                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * model_kwargs["mask"][:,None,:,:] * 100
+                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * 100
                     xstart_new = self._predict_xstart_from_eps(x, t, eps_new)
                     mean_new, _, _ = self.q_posterior_mean_variance(
                         x_start=xstart_new, x_t=x, t=t
