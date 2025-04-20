@@ -594,7 +594,7 @@ class GaussianDiffusion:
                     ### L1 
                     loss_reg_main = th.mean(th.abs(mean_new - x_deterministic ))
 
-                    loss_reg_main_2 = th.mean(th.abs(cfn_optim))
+                    loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
 
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
