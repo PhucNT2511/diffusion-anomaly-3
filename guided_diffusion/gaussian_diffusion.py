@@ -504,7 +504,7 @@ class GaussianDiffusion:
             optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
             lambda_eff1 = 1  #0.1
             lambda_eff2 = 10  #5
-            lambda_eff3 = 10 #5
+            lambda_eff3 = 30 #5
 
             ###
             '''
