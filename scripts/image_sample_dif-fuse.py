@@ -198,8 +198,8 @@ def create_argparser():
         num_samples=10000,
         batch_size=16,
         use_ddim=True,
-        model_path="", ############# các path này phải lấy kỹ, theo fold
-        classifier_path="", ################ path này lấy kỹ, theo fold
+        model_path="", ############# 
+        classifier_path="", ################ Ko dùng đến
         fold = 1,
         start_point = 2368,
         end_point = 2400,

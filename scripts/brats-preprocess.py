@@ -59,6 +59,10 @@ for i1 in directory:
                 image = data['image'].astype(np.float32)  # Convert to float32
                 mask = data['mask'].astype(np.float32)  # Convert to float32
 
+                ###
+                image = image.reshape(image.shape[0],image.shape[2],image.shape[1])
+                mask = mask.reshape(mask.shape[1],mask.shape[0])
+
                 if mask.shape[0] < 256:
 
                     # Process image (4 channels)

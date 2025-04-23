@@ -174,7 +174,7 @@ class TrainLoop:
             count = None
 
             
-            if self.class_cond==False: ### ở đây default là false, đang sửa thành True
+            if self.class_cond==False: ### ở đây default là false
                 cond = None
 
 
