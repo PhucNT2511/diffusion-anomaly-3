@@ -1,5 +1,5 @@
 """
-Train a noised image classifier on ImageNet.
+Train a noised image mix on Brats20.
 """
 import wandb
 import argparse
@@ -33,28 +33,26 @@ from guided_diffusion.resample import create_named_schedule_sampler
 from guided_diffusion.script_util import (
     add_dict_to_argparser,
     args_to_dict,
-    classifier_and_diffusion_defaults,
-    create_classifier_and_diffusion,
+    mix_and_diffusion_defaults,
+    create_mix_and_diffusion,
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 
 
 def main():
 
-    ## 
-    '''
-    classifier_scale = 100
-    def cond_fn(x_0, classifier, t, y=None):
-        assert y is not None
-        with th.enable_grad():
-            # Giữ nguyên x_0 mà không detach
-            logits = classifier(x_0, t)
-            log_probs = F.log_softmax(logits, dim=-1)
-            selected = log_probs[range(len(logits)), y.view(-1)]  # range(len(logits)) = batch_size
-            # Tính toán gradient
-            a = th.autograd.grad(selected.sum(), x_0)[0]
-            return a, a * classifier_scale
-    '''
+    def dice_loss(pred, target, smooth=1e-8):
+        pred_flat = pred.view(-1)
+        target_flat = target.view(-1)
+        intersection = (pred_flat * target_flat).sum()
+        return 1 - (2. * intersection + smooth) / (pred_flat.sum() + target_flat.sum() + smooth)
+    
+    def focal_loss(pred, target, alpha=0.8, gamma=2.0, eps=1e-8):
+        pred = pred.clamp(eps, 1. - eps)  # tránh log(0)
+        loss = -alpha * (1 - pred)**gamma * target * th.log(pred) \
+            - (1 - alpha) * pred**gamma * (1 - target) * th.log(1 - pred)
+        return loss.mean()
+
 
     def min_max_scaler(x):
         x_flat = x.reshape(x.shape[0], -1)
@@ -63,25 +61,13 @@ def main():
         scale = x_max - x_min
         x_normalize = (x - x_min[:, None, None]) / scale[:, None, None]
         return x_normalize
-    '''
-    def saliency_map(x_0,classifier):
-        t_0 = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
-        ds_label = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
-        x0_grad, _ = cond_fn(x_0,classifier,t_0,ds_label)
-        grad_img = th.abs(th.sum(x0_grad, dim=1)) ## from (B,C,H,W) to (B,H,W) because we calculate the sum of 4 dimensions
-        coarse_mask = min_max_scaler(grad_img) ## mask  
-        # không dùng được vì ko truyền ngược: gaussian_blur = GaussianBlur(15, 5)
-        soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000) #ngưỡng 0.4 - 1/(1+e^-t)
-        return soft_mask
-    '''
 
-    ###
+    
     args = create_argparser().parse_args()
 
-    ########
     wandb.login(key="18867541319386f8b2e1362741174bd50968c3f3")
     wandb.init(
-        project="brats-regularization-classifier",  # Replace with your project name
+        project="brats-few-shot-mix",  # Replace with your project name
         config=args,  # Optionally log hyperparameters
     )
 
@@ -89,8 +75,8 @@ def main():
     logger.configure()
 
     logger.log("creating model and diffusion...")
-    model, diffusion = create_classifier_and_diffusion(
-        **args_to_dict(args, classifier_and_diffusion_defaults().keys()),
+    model, diffusion = create_mix_and_diffusion(
+        **args_to_dict(args, mix_and_diffusion_defaults().keys()),
     )
     model.to(dist_util.dev())
     if args.noised:
@@ -176,15 +162,16 @@ def main():
                 dist_util.load_state_dict(opt_checkpoint, map_location=dist_util.dev())
             )
 
-    logger.log("training classifier model...")
+    logger.log("training mixed model...")
 
     def validation_log(val_data_load):
+        ### only in clean images
         data_loader = iter(val_data_load)
         accuracies = []
         losses = []
         data_size = 0
         for data in data_loader:
-            batch, _, labels, _ = data
+            batch, _, labels, _, _, _ = data
             data_size += batch.shape[0]
             batch = batch.to(dist_util.dev())
             labels= labels.to(dist_util.dev())
@@ -193,7 +180,7 @@ def main():
                 split_microbatches(args.microbatch, batch, labels, t)
             ):
             
-                logits = model(sub_batch, timesteps=sub_t)
+                logits, saliency = model(sub_batch, sub_batch, timesteps=sub_t)
             
                 loss = F.cross_entropy(logits, sub_labels, reduction="none") 
                 loss = loss.mean()
@@ -223,6 +210,8 @@ def main():
         batch = batch.to(dist_util.dev())
         labels = labels.to(dist_util.dev())
         masks = masks.to(dist_util.dev())
+        # Giả sử mask ban đầu có shape (B, 256, 256) -> replicate theo channel để có shape (B, 4, 256, 256)
+        masks = masks.unsqueeze(1).repeat(1, 4, 1, 1)
         exist_annotations = exist_annotations.to(dist_util.dev())
         cluster_labels = cluster_labels.to(dist_util.dev())
 
@@ -243,57 +232,47 @@ def main():
             )
         ):
             # Loss phân loại từ logits
-            logits = model(sub_batch, timesteps=sub_t)
-            loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
+            logits, saliency = model(sub_batch, sub_batch_0, timesteps=sub_t)
+            loss_cls = F.cross_entropy(logits, sub_labels, reduction="mean")
 
-            
-            # Đảm bảo sub_batch_0 tách riêng và có requires_grad=True để tính gradient
-            sub_batch_0 = sub_batch_0.detach().requires_grad_(True)
-            logits_0 = model(sub_batch_0, sub_t_0)
-            log_probs = F.log_softmax(logits_0, dim=-1)
-            selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
-            # selected.sum() để tạo scalar loss; mỗi input chỉ phụ thuộc vào output của nó
-            a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
+            pred = saliency  # already sigmoid-normalized [B,H,W]
 
-            # ---------------------------
-            # 1. Tính real_annotation_loss:
-            # Với mỗi sample có exist_annotation == 1, tính norm giữa gradient và mask tương ứng,
-            # còn với sample không có annotation thì đặt loss = 0.
-            anno_mask = (sub_anno == 1)
-            if anno_mask.sum() > 0:
-                diff = a[anno_mask] - sub_masks[anno_mask]
-                real_annotation_loss = th.mean(diff**2, dim=(1, 2, 3)).sqrt()
-            else:
-                real_annotation_loss = th.tensor(0.0, device=a.device, dtype=a.dtype, requires_grad=True)
+            # 1. Real annotation loss
+            real_annotation_loss = th.tensor(0.0, device=dist_util.dev())
+            cnt_anno = 0
+            for i in range(sub_anno.size(0)):
+                if sub_anno[i] == 1:
+                    cnt_anno += 1
+                    mask_i = sub_masks[i].float()
+                    pred_i = pred[i]
+                    real_annotation_loss += F.binary_cross_entropy(pred_i, mask_i) #+ dice_loss(pred_i, mask_i) + focal_loss(pred_i, mask_i)
+            if cnt_anno > 0:
+                real_annotation_loss /= cnt_anno
 
-            # ---------------------------
-            # 2. Tính loss_discrepancy: so sánh giữa mẫu thực (annotation==1) và mẫu sinh ra (annotation==0) trong cùng 1 cluster
-            loss_discrepancy = th.tensor(0.0, device=a.device, dtype=a.dtype, requires_grad=True)
-            # 3. Tính loss_robustness: đo khoảng cách giữa các mẫu sinh ra trong cùng cluster
-            loss_robustness = th.tensor(0.0, device=a.device, dtype=a.dtype, requires_grad=True)
+            # 2. Discrepancy loss: pairwise real vs fake within each cluster, mean over |R_c|*|G_c|
+            loss_discrepancy = th.tensor(0.0, device=dist_util.dev())
+            for c in sub_cluster.unique():
+                real_mask = (sub_cluster == c) & (sub_anno == 1)
+                gen_mask = (sub_cluster == c) & (sub_anno == 0)
+                n_real = real_mask.sum().item()
+                n_gen = gen_mask.sum().item()
+                if n_real > 0 and n_gen > 0:
+                    real_vals = pred[real_mask]  # (n_real, H, W)
+                    gen_vals = pred[gen_mask]    # (n_gen, H, W)
+                    diffs = real_vals.unsqueeze(1) - gen_vals.unsqueeze(0)  # (n_real, n_gen, H, W)
+                    norms = th.sqrt(diffs.pow(2).mean(dim=(2, 3)))           # (n_real, n_gen)
+                    loss_discrepancy += norms.sum() / (n_real * n_gen)
 
-            # Vector hóa theo cluster (giả sử có 4 cluster: 0,1,2,3)
-            for cluster in range(4):
-                cluster_mask = (sub_cluster == cluster)
-                # Mẫu annotated (real)
-                real_mask = anno_mask & cluster_mask
-                # Mẫu generated (không có annotation)
-                gen_mask = (~anno_mask) & cluster_mask
-
-                if real_mask.sum() > 0 and gen_mask.sum() > 0:
-                    real_vals = a[real_mask]   # shape: (N_real, C, H, W)
-                    gen_vals = a[gen_mask]     # shape: (N_gen, C, H, W)
-                    diffs = real_vals.unsqueeze(1) - gen_vals.unsqueeze(0)  # shape: (N_real, N_gen, C, H, W)
-                    norms = th.mean(diffs.flatten(2)**2, dim=-1).sqrt()  # shape: (N_real, N_gen)
-                    loss_discrepancy = loss_discrepancy + norms.sum() / real_vals.shape[0]
-
-                if gen_mask.sum() > 0:
-                    gen_vals = a[gen_mask]   # shape: (N_gen, C, H, W)
-                    if gen_vals.shape[0] > 1:
-                        diffs = gen_vals.unsqueeze(1) - gen_vals.unsqueeze(0)  # shape: (N_gen, N_gen, C, H, W)
-                        norms = th.mean(diffs.flatten(2)**2, dim=-1).sqrt()  # shape: (N_gen, N_gen)
-                        loss_robustness = loss_robustness + norms.sum() / gen_vals.shape[0]
-
+            # 3. Robustness loss: pairwise fake within cluster, mean over n_gen^2
+            loss_robustness = th.tensor(0.0, device=dist_util.dev())
+            for c in sub_cluster.unique():
+                gen_mask = (sub_cluster == c) & (sub_anno == 0)
+                n_gen = gen_mask.sum().item()
+                if n_gen > 1:
+                    gen_vals = pred[gen_mask]  # (n_gen, H, W)
+                    diffs = gen_vals.unsqueeze(1) - gen_vals.unsqueeze(0)  # (n_gen, n_gen, H, W)
+                    norms = th.sqrt(diffs.pow(2).mean(dim=(2, 3)))         # (n_gen, n_gen)
+                    loss_robustness += norms.sum() / (n_gen * n_gen)
 
             # In ra thông tin loss và trạng thái requires_grad cho debug (detach() để in giá trị)
             print(f"loss_cls: {loss_cls.detach()} \n"
@@ -306,7 +285,7 @@ def main():
                 f"loss_robustness.requires_grad: {loss_robustness.requires_grad}")
 
             # Tổng hợp các loss với hệ số tương ứng và tính trung bình nếu cần
-            loss_total = loss_cls.mean() \
+            loss_total = loss_cls \
                         + lambda_0 * real_annotation_loss \
                         + lambda_1 * loss_discrepancy \
                         + lambda_2 * loss_robustness
@@ -446,7 +425,7 @@ def create_argparser():
         fold=2,
         transform=False,
     )
-    defaults.update(classifier_and_diffusion_defaults())
+    defaults.update(mix_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
     return parser
@@ -455,73 +434,3 @@ def create_argparser():
 if __name__ == "__main__":
     main()
 
-
-##### Bây giờ, có 2 hướng chính:
-### Cách 1: Cải thiện chất lượng của cls - grad của cls sẽ tốt theo: Contrastive, Kernel-diversity (Vẫn dùng mask cũ)
-### + Về kernel_diversity: Chỉ nên diversity ở những layer CNN đầu thôi, chứ còn về sau khi nó đã tổng hợp được nhiều thông tin thì ko cần bắt phải khác nhau.
-### + Có thể sử dụng thêm LASSO regularization --> loại bỏ những nơ-ron ko cần thiết (dư thừa)
-### Nhưng mà thực sự thì cls ở đây đang có 2 thái cực: nếu chỉ tập trung vào ảnh gốc ban đầu thì mask khởi tạo rất tốt, nếu muốn hướng dẫn grad thì chưa đủ thuyết phục.
-### Vậy có nên train thêm 1 cls chỉ dựa trên ảnh ban đầu thui. Kết hợp giữa nó và cls trên trên ảnh noise để refined 
-### Làm như vậy coarse mask sẽ chính xác hơn nhiều.
-
-### Cách 2: Bản chất của DDIM và DDPM ở đây cũng chỉ là hỗ trợ cho grad của cls mà thôi, kiểu coarse mask sẽ được tinh chỉnh
-### Trong khi DDIM sẽ heal nhẹ nhàng hơn, thì DDPM sẽ heal mãnh liệt hơn ở vùng nghi ngờ của nó.
-### Vậy liệu có cách nào mask ngon hơn nhiều ko??? --> có thể train thêm mạng khác, hoặc cái gì đó, thay vì dùng đạo hàm tại thời điểm ban đầu (có thể kết hợp thêm các thời điểm khác) làm mask
-
-
-'''
-def forward_backward_log(data_load, data_loader, prefix="train"):
-        try:
-            batch, _, labels, masks = next(data_loader)
-        except:
-            data_loader = iter(data_load)
-            batch, _, labels, masks = next(data_loader)
-
-        # print('labels', labels)
-        batch = batch.to(dist_util.dev())
-        labels= labels.to(dist_util.dev())
-        masks = masks.to(dist_util.dev())
-        if args.noised:
-            t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}")
-            batch_0 = batch
-            batch = diffusion.q_sample(batch, t)
-        else:
-            t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
-
-        ##### Ở đây đang cố thử hiệu chỉnh bằng 2 thành phần: Cross_entropy loss + mse(coarse_mask(grad của cls), groundtruth_mask) --> supervised DDPM, not  WSSS
-        for i, (sub_batch_0,sub_batch, sub_labels, sub_masks, sub_t) in enumerate(
-            split_microbatches(args.microbatch,batch_0, batch, labels, masks, t)
-        ):
-            #
-            logits = model(sub_batch, timesteps=sub_t)
-
-            #
-            t_0 = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            ds_label = th.randint(low=0, high=1, size=(sub_batch_0.shape[0],), device=dist_util.dev())
-            with th.enable_grad():
-                sub_batch_0_detached = sub_batch_0.detach().requires_grad_(True)
-                logits_0 = model(sub_batch_0_detached, t_0)
-                #print("logits_0.requires_grad:", logits_0.requires_grad)
-                log_probs = F.log_softmax(logits_0, dim=-1)
-                #print("log_probs.requires_grad:", log_probs.requires_grad)
-                selected = log_probs[range(len(logits_0)), ds_label.view(-1)]
-                #print("selected.requires_grad:", selected.requires_grad)
-                # Tính toán gradient của sub_batch_0
-                x0_grad = th.autograd.grad(selected.sum(), sub_batch_0_detached)[0]
-            grad_img = th.abs(th.sum(x0_grad, dim=1))  # từ (B,C,H,W) thành (B,H,W)
-            coarse_mask_0 = min_max_scaler(grad_img)  # normalized coarse_mask 
-            
-            #coarse_mask_ = (th.ones(coarse_mask.shape, device=coarse_mask.device) - coarse_mask)
-         
-            loss = F.cross_entropy(logits, sub_labels, reduction="none") + F.mse_loss(coarse_mask_0, sub_masks, reduction="mean")
-
-'''
-
-
-
-'''
-2 kịch bản:
- + Thiết kế train few-shot, cần phải chọn ra một vài tầm 100 mẫu đã có đủ annotation, train hy vọng sẽ làm cải thiện.
- + Train theo kiểu đạo hàm trên ảnh ban đầu khi tách ra thành các patch nên về giá trị trung bình của nó.
-'''

@@ -3,7 +3,7 @@ import inspect
 
 from . import gaussian_diffusion as gd
 from .respace import SpacedDiffusion, space_timesteps
-from .unet import SuperResModel, UNetModel, EncoderUNetModel
+from .unet import SuperResModel, UNetModel, EncoderUNetModel, MixedUNetModel
 
 NUM_CLASSES = 2
 
@@ -26,6 +26,23 @@ def diffusion_defaults():
 
 
 def classifier_defaults():
+    """
+    Defaults for classifier models.
+    """
+    return dict(
+        image_size=256,
+        classifier_use_fp16=False,
+        classifier_width=32,
+        classifier_depth=4,
+        classifier_attention_resolutions="32,16,8",  # 16
+        classifier_use_scale_shift_norm=True,  # False
+        classifier_resblock_updown=True,  # False
+        classifier_pool="attention",
+        classifier_dropout=0.0,
+        dataset='brats'
+    )
+
+def mix_model_defaults():
     """
     Defaults for classifier models.
     """
@@ -70,6 +87,11 @@ def model_and_diffusion_defaults():
 
 def classifier_and_diffusion_defaults():
     res = classifier_defaults()
+    res.update(diffusion_defaults())
+    return res
+
+def mix_and_diffusion_defaults():
+    res = mix_model_defaults()
     res.update(diffusion_defaults())
     return res
 
@@ -243,6 +265,51 @@ def create_classifier_and_diffusion(
     )
     return classifier, diffusion
 
+def create_mix_and_diffusion(
+    image_size,
+    classifier_use_fp16,
+    classifier_width,
+    classifier_depth,
+    classifier_attention_resolutions,
+    classifier_use_scale_shift_norm,
+    classifier_resblock_updown,
+    classifier_pool,
+    classifier_dropout,
+    learn_sigma,
+    diffusion_steps,
+    noise_schedule,
+    timestep_respacing,
+    use_kl,
+    predict_xstart,
+    rescale_timesteps,
+    rescale_learned_sigmas,
+    dataset,
+):
+    print('timestepresp2', timestep_respacing)
+    classifier = create_mix(
+        image_size,
+        classifier_use_fp16,
+        classifier_width,
+        classifier_depth,
+        classifier_attention_resolutions,
+        classifier_use_scale_shift_norm,
+        classifier_resblock_updown,
+        classifier_pool,
+        classifier_dropout,
+        dataset,
+    )
+    diffusion = create_gaussian_diffusion(
+        steps=diffusion_steps,
+        learn_sigma=learn_sigma,
+        noise_schedule=noise_schedule,
+        use_kl=use_kl,
+        predict_xstart=predict_xstart,
+        rescale_timesteps=rescale_timesteps,
+        rescale_learned_sigmas=rescale_learned_sigmas,
+        timestep_respacing=timestep_respacing,
+    )
+    return classifier, diffusion
+
 
 def create_classifier(
     image_size,
@@ -277,6 +344,55 @@ def create_classifier(
     print('dropout', classifier_dropout)
 
     return EncoderUNetModel(
+        image_size=image_size,
+        in_channels=number_in_channels,
+        model_channels=classifier_width,
+        out_channels=2,
+        num_res_blocks=classifier_depth,
+        attention_resolutions=tuple(attention_ds),
+        dropout=classifier_dropout,
+        channel_mult=channel_mult,
+        use_fp16=classifier_use_fp16,
+        num_head_channels=64,
+        use_scale_shift_norm=classifier_use_scale_shift_norm,
+        resblock_updown=classifier_resblock_updown,
+        pool=classifier_pool        
+    )
+
+
+def create_mix(
+    image_size,
+    classifier_use_fp16,
+    classifier_width,
+    classifier_depth,
+    classifier_attention_resolutions,
+    classifier_use_scale_shift_norm,
+    classifier_resblock_updown,
+    classifier_pool,
+    classifier_dropout,
+    dataset,
+):
+    if image_size == 256:
+        channel_mult = (1, 1, 2, 2, 4, 4)
+    elif image_size == 128:
+        channel_mult = (1, 1, 2, 3, 4)
+    elif image_size == 64:
+        channel_mult = (1, 2, 3, 4)
+    else:
+        raise ValueError(f"unsupported image size: {image_size}")
+
+    attention_ds = []
+    for res in classifier_attention_resolutions.split(","):
+        attention_ds.append(image_size // int(res))
+    if dataset=='brats':
+      number_in_channels=4
+    else:
+      number_in_channels=1
+    print('number_in_channels classifier', number_in_channels)
+      
+    print('dropout', classifier_dropout)
+
+    return MixedUNetModel(
         image_size=image_size,
         in_channels=number_in_channels,
         model_channels=classifier_width,
