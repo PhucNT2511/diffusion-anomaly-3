@@ -100,6 +100,13 @@ class BRATSDataset(torch.utils.data.Dataset):
             axis=2
         )
         labels = np.argmin(dists, axis=1)
+
+        # Lưu kết quả ra CSV
+        df = pd.DataFrame({
+            'filepath': self.datapaths,
+            'cluster_label': labels
+        })
+        df.to_csv('cluster_labels.csv', index=False)
         return labels
 
     def __getitem__(self, idx):
