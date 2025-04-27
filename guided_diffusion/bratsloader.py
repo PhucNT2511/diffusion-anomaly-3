@@ -35,8 +35,13 @@ class BRATSDataset(Dataset):
         few_shot = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/few_shot_path.npy', allow_pickle=True).item()
         self.proto_paths = few_shot[few_shot]
         self.exist_annotation = np.array([1 if p in self.proto_paths else 0 for p in self.datapaths])
+        
         # cluster labels
-        self.cluster_labels = self.perform_clustering()
+        #self.cluster_labels = self.perform_clustering()
+        self.cluster_labels = pd.read_csv(
+            f'data/brats/{self.mode}_cluster_labels.csv'
+        )['cluster_label']
+
 
     def perform_clustering(self):
         # compute centers
