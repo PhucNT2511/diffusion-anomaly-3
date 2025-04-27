@@ -126,6 +126,8 @@ def main():
     if args.dataset == 'brats':
         print("Training on BRATS-20 dataset")
         ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
+        print(args.min_cluster_size)
+        print( args.max_cluster_size)
         w_ds, a_ds, c_ds, subcs = split_dataset_by_annotation_and_cluster(
             ds, args.min_cluster_size, args.max_cluster_size
         )

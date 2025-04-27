@@ -68,19 +68,33 @@ class BRATSDataset(Dataset):
         return labels
 
     def __getitem__(self, idx):
+        # Tải và tiền xử lý
         d = np.load(self.datapaths[idx])
-        img = d['image'][[1,2,3,0]]
-        proc = np.stack([irm_min_max_preprocess(img[i]) for i in range(img.shape[0])])
-        padding_img = np.zeros((4,256,256), dtype=np.float32)
-        padding_img[:,8:-8,8:-8] = proc
+        img = d['image'][[1,2,3,0],:,:]
+        for i in range(img.shape[0]):
+            img[i] = irm_min_max_preprocess(img[i])
+
         mask = d['mask']
+        # padding
+        padding_img = np.zeros((4,256,256), dtype=np.float32)
+        padding_img[:,8:-8,8:-8] = img
         padding_mask = np.zeros((256,256), dtype=np.float32)
         padding_mask[8:-8,8:-8] = mask
+
         label = 1 if mask.sum() > 0 else 0
-        img_t = torch.Tensor(padding_img)
+        cond = {'y': label}
         if self.transforms:
-            img_t = self.transforms(img_t)
-        return img_t, label, padding_mask, self.exist_annotation[idx], int(self.cluster_labels[idx])
+            padding_img = self.transforms(torch.Tensor(padding_img))
+
+        return (
+            padding_img,
+            cond,
+            label,
+            padding_mask,
+            self.exist_annotation[idx],
+            int(self.cluster_labels[idx])
+        )
+
 
     def __len__(self):
         return len(self.datapaths)
