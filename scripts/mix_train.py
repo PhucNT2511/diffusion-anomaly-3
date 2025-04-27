@@ -7,7 +7,11 @@ import os
 import sys
 sys.path.append("..")
 sys.path.append(".")
-from guided_diffusion.bratsloader import BRATSDataset
+from guided_diffusion.bratsloader import (
+    BRATSDataset, 
+    split_dataset_by_annotation_and_cluster,
+    SubClusterBatchSampler
+)
 # from guided_diffusion.litsloader import LiTSDataset
 
 import blobfile as bf
@@ -18,12 +22,10 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
-# from visdom import Visdom
 import numpy as np
-# viz = Visdom(port=8850)
-# loss_window = viz.line( Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(), opts=dict(xlabel='epoch', ylabel='Loss', title='classification loss'))
-# val_window = viz.line( Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(), opts=dict(xlabel='epoch', ylabel='Loss', title='validation loss'))
-# acc_window= viz.line( Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(), opts=dict(xlabel='epoch', ylabel='acc', title='accuracy'))
+from torch.utils.data import Dataset, Subset, DataLoader, Sampler
+
+
 from torchvision import transforms
 from guided_diffusion import dist_util, logger
 from guided_diffusion.fp16_util import MixedPrecisionTrainer
@@ -124,11 +126,14 @@ def main():
     if args.dataset == 'brats':
         print("Training on BRATS-20 dataset")
         ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
-        datal = th.utils.data.DataLoader(
-            ds,
-            batch_size=args.batch_size,
-            shuffle=True)
-        data = iter(datal)
+        w_ds, a_ds, c_ds, subcs = split_dataset_by_annotation_and_cluster(
+            ds, args.min_cluster_size, args.max_cluster_size
+        )
+        w_loader = DataLoader(w_ds, batch_size=args.batch_size, shuffle=True)
+        a_loader = DataLoader(a_ds, batch_size=args.batch_size, shuffle=True)
+        c_sampler = SubClusterBatchSampler(subcs, args.subclusters_per_batch)
+        c_loader = DataLoader(c_ds, batch_sampler=c_sampler)
+        w_iter, a_iter, c_iter = iter(w_loader), iter(a_loader), iter(c_loader)
 
     # elif args.dataset == 'lits':
     #     print("Training on LiTS dataset")
@@ -145,7 +150,7 @@ def main():
         val_datal = th.utils.data.DataLoader(
             val_ds,
             batch_size= args.batch_size,
-            shuffle=True)
+            shuffle=False)
         val_data = iter(val_datal)
     except:
         val_data = None
@@ -195,115 +200,123 @@ def main():
         return np.mean(losses), np.mean(accuracies)
     
     # ---------------------------------------------
-    lambda_0 = 0.1 
-    lambda_1 = 0.01
-    lambda_2 = 0.1
+    lambda_0 = args.lambda_0
+    lambda_1 = args.lambda_1
+    lambda_2 = args.lambda_2
 
-    def forward_backward_log(data_load, data_loader, prefix="train"):
+    def forward_backward_log(
+        w_loader, w_iter,
+        a_loader, a_iter,
+        c_loader, c_iter,
+        prefix="train"
+    ):
+        """
+        Sequentially fetch batches from weak, annotated, and clustered loaders, compute individual losses,
+        print debug info, log, and backprop as in the original implementation.
+        Returns loss dict and updated iterators.
+        """
+        dev = dist_util.dev()
+
+        # --- 1) Weak (classification) batch ---
         try:
-            batch, _, labels, masks, exist_annotations, cluster_labels = next(data_loader)
-        except:
-            data_loader = iter(data_load)
-            batch, _, labels, masks, exist_annotations, cluster_labels = next(data_loader)
+            w_batch, _, w_labels, _, w_exist, _ = next(w_iter)
+        except StopIteration:
+            w_iter = iter(w_loader)
+            w_batch, _, w_labels, _, w_exist, _ = next(w_iter)
+        w_batch, w_labels = w_batch.to(dev), w_labels.to(dev)
 
-        # Di chuyển data sang device tương ứng
-        batch = batch.to(dist_util.dev())
-        labels = labels.to(dist_util.dev())
-        masks = masks.to(dist_util.dev())
-        # Giả sử mask ban đầu có shape (B, 256, 256) -> replicate theo channel để có shape (B, 4, 256, 256)
-        masks = masks.unsqueeze(1).repeat(1, 4, 1, 1)
-        exist_annotations = exist_annotations.to(dist_util.dev())
-        cluster_labels = cluster_labels.to(dist_util.dev())
-
-        batch_0 = batch
+        # Noise sampling if enabled
         if args.noised:
-            t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            batch = diffusion.q_sample(batch, t)
+            t_w, _ = schedule_sampler.sample(w_batch.size(0), dev)
+            w_input = diffusion.q_sample(w_batch, t_w)
         else:
-            t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
-        
-        # Giả sử lớp cần chọn là 0 (với high=1, tức luôn 0)
-        classes = th.randint(low=0, high=1, size=(batch_0.shape[0],), device=dist_util.dev())
-        t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
+            t_w = th.zeros(w_batch.size(0), dtype=th.long, device=dev)
+            w_input = w_batch
 
-        for i, (sub_batch_0, sub_batch, sub_masks, sub_labels, sub_t, sub_t_0, sub_classes, sub_anno, sub_cluster) in enumerate(
-            split_microbatches(
-                args.microbatch, batch_0, batch, masks, labels, t, t_0, classes, exist_annotations, cluster_labels
-            )
-        ):
-            # Loss phân loại từ logits
-            logits, saliency = model(sub_batch, sub_batch_0, timesteps=sub_t)
-            loss_cls = F.cross_entropy(logits, sub_labels, reduction="mean")
+        # Classification forward
+        logits, _ = model(w_input, w_batch, timesteps=t_w)
+        loss_cls = F.cross_entropy(logits, w_labels, reduction="mean")
 
-            pred = saliency  # already sigmoid-normalized [B,H,W]
+        # --- 2) Annotation batch ---
+        try:
+            a_batch, _, _, a_masks, a_exist, _ = next(a_iter)
+        except StopIteration:
+            a_iter = iter(a_loader)
+            a_batch, _, _, a_masks, a_exist, _ = next(a_iter)
+        a_batch, a_masks, a_exist = a_batch.to(dev), a_masks.to(dev), a_exist.to(dev)
 
-            # 1. Real annotation loss
-            real_annotation_loss = th.tensor(0.0, device=dist_util.dev())
-            cnt_anno = 0
-            for i in range(sub_anno.size(0)):
-                if sub_anno[i] == 1:
-                    cnt_anno += 1
-                    mask_i = sub_masks[i].float()
-                    pred_i = pred[i]
-                    real_annotation_loss += F.binary_cross_entropy(pred_i, mask_i) #+ dice_loss(pred_i, mask_i) + focal_loss(pred_i, mask_i)
-            if cnt_anno > 0:
-                real_annotation_loss /= cnt_anno
+        # Annotation forward
+        _, sal_ann = model(a_batch, a_batch, timesteps=None)
+        # Real annotation loss
+        loss_anno = th.tensor(0., device=dev)
+        cnt_anno = a_exist.sum().item()
+        if cnt_anno > 0:
+            mask_ann = a_masks.unsqueeze(1).float()
+            loss_anno = F.binary_cross_entropy(sal_ann[a_exist==1], mask_ann[a_exist==1])
 
-            # 2. Discrepancy loss: pairwise real vs fake within each cluster, mean over |R_c|*|G_c|
-            loss_discrepancy = th.tensor(0.0, device=dist_util.dev())
-            for c in sub_cluster.unique():
-                real_mask = (sub_cluster == c) & (sub_anno == 1)
-                gen_mask = (sub_cluster == c) & (sub_anno == 0)
-                n_real = real_mask.sum().item()
-                n_gen = gen_mask.sum().item()
-                if n_real > 0 and n_gen > 0:
-                    real_vals = pred[real_mask]  # (n_real, H, W)
-                    gen_vals = pred[gen_mask]    # (n_gen, H, W)
-                    diffs = real_vals.unsqueeze(1) - gen_vals.unsqueeze(0)  # (n_real, n_gen, H, W)
-                    norms = th.sqrt(diffs.pow(2).mean(dim=(2, 3)))           # (n_real, n_gen)
-                    loss_discrepancy += norms.sum() / (n_real * n_gen)
+        # --- 3) Clustered batch ---
+        try:
+            c_batch, _, _, _, c_exist, c_cluster = next(c_iter)
+        except StopIteration:
+            c_iter = iter(c_loader)
+            c_batch, _, _, _, c_exist, c_cluster = next(c_iter)
+        c_batch, c_exist, c_cluster = c_batch.to(dev), c_exist.to(dev), c_cluster.to(dev)
 
-            # 3. Robustness loss: pairwise fake within cluster, mean over n_gen^2
-            loss_robustness = th.tensor(0.0, device=dist_util.dev())
-            for c in sub_cluster.unique():
-                gen_mask = (sub_cluster == c) & (sub_anno == 0)
-                n_gen = gen_mask.sum().item()
-                if n_gen > 1:
-                    gen_vals = pred[gen_mask]  # (n_gen, H, W)
-                    diffs = gen_vals.unsqueeze(1) - gen_vals.unsqueeze(0)  # (n_gen, n_gen, H, W)
-                    norms = th.sqrt(diffs.pow(2).mean(dim=(2, 3)))         # (n_gen, n_gen)
-                    loss_robustness += norms.sum() / (n_gen * n_gen)
+        # Cluster forward
+        _, sal_cl = model(c_batch, c_batch, timesteps=None)
 
-            # In ra thông tin loss và trạng thái requires_grad cho debug (detach() để in giá trị)
-            print(f"loss_cls: {loss_cls.detach()} \n"
-                f"real_annotation_loss: {real_annotation_loss.detach()} \n"
-                f"loss_discrepancy: {loss_discrepancy.detach()} \n"
-                f"loss_robustness: {loss_robustness.detach()}")
-            print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - "
-                f"real_annotation_loss.requires_grad: {real_annotation_loss.requires_grad} - "
-                f"loss_discrepancy.requires_grad: {loss_discrepancy.requires_grad} - "
-                f"loss_robustness.requires_grad: {loss_robustness.requires_grad}")
+        # Discrepancy loss
+        loss_discrepancy = th.tensor(0., device=dev)
+        for c in c_cluster.unique():
+            real_mask = (c_cluster==c) & (c_exist==1)
+            gen_mask  = (c_cluster==c) & (c_exist==0)
+            n_real, n_gen = real_mask.sum().item(), gen_mask.sum().item()
+            if n_real>0 and n_gen>0:
+                real_vals = sal_cl[real_mask]
+                gen_vals  = sal_cl[gen_mask]
+                diffs = real_vals.unsqueeze(1) - gen_vals.unsqueeze(0)
+                norms = th.sqrt(diffs.pow(2).mean(dim=(2,3)))
+                loss_discrepancy += norms.sum() / (n_real * n_gen)
 
-            # Tổng hợp các loss với hệ số tương ứng và tính trung bình nếu cần
-            loss_total = loss_cls \
-                        + lambda_0 * real_annotation_loss \
-                        + lambda_1 * loss_discrepancy \
-                        + lambda_2 * loss_robustness
+        # Robustness loss
+        loss_robustness = th.tensor(0., device=dev)
+        for c in c_cluster.unique():
+            gen_mask = (c_cluster==c) & (c_exist==0)
+            n_gen = gen_mask.sum().item()
+            if n_gen>1:
+                vals = sal_cl[gen_mask]
+                diffs = vals.unsqueeze(1) - vals.unsqueeze(0)
+                norms = th.sqrt(diffs.pow(2).mean(dim=(2,3)))
+                loss_robustness += norms.sum() / (n_gen * n_gen)
 
-            # Ghi log loss và các metric khác (nếu có)
-            losses = {}
-            losses[f"{prefix}_loss"] = loss_total.detach()
-            losses[f"{prefix}_acc@1"] = compute_top_k(logits, sub_labels, k=1, reduction="none")
-            log_loss_dict(diffusion, sub_t, losses)
+        # Debug prints
+        print(f"loss_cls: {loss_cls.detach()} \n"
+            f"real_annotation_loss: {loss_anno.detach()} \n"
+            f"loss_discrepancy: {loss_discrepancy.detach()} \n"
+            f"loss_robustness: {loss_robustness.detach()}")
+        print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - "
+            f"real_annotation_loss.requires_grad: {loss_anno.requires_grad} - "
+            f"loss_discrepancy.requires_grad: {loss_discrepancy.requires_grad} - "
+            f"loss_robustness.requires_grad: {loss_robustness.requires_grad}")
 
-            # Backward qua mp_trainer (ở chế độ train)
-            if loss_total.requires_grad and prefix == "train":
-                if i == 0:
-                    mp_trainer.zero_grad()
-                mp_trainer.backward(loss_total * len(sub_batch) / len(batch))
+        # Total loss
+        loss_total = (loss_cls
+                    + lambda_0 * loss_anno
+                    + lambda_1 * loss_discrepancy
+                    + lambda_2 * loss_robustness)
+
+        # Log and backward
+        losses = {}
+        losses[f"{prefix}_loss"] = loss_total.detach()
+        losses[f"{prefix}_acc@1"] = compute_top_k(logits, w_labels, k=1, reduction="none")
+        log_loss_dict(diffusion, t_w, losses)
+
+        if loss_total.requires_grad and prefix=="train":
+            mp_trainer.zero_grad()
+            mp_trainer.backward(loss_total)
+            mp_trainer.step()
 
         return losses
-
 
     #### every step 
     loss_epoch = 0
@@ -320,7 +333,9 @@ def main():
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
-        losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
+        losses = forward_backward_log(
+            w_loader, w_iter, a_loader, a_iter, c_loader, c_iter
+        )
 
         loss_epoch += losses['train_loss'].sum()
         acc_epoch += losses['train_acc@1'].sum()
@@ -331,7 +346,6 @@ def main():
             with th.no_grad():
                 with model.no_sync():
                     model.eval()
-                    #forward_backward_log(val_datal, val_data, prefix="val")
                     val_loss, val_accuracy = validation_log(val_datal)
                     wandb.log({
                         "step": step + resume_step,
@@ -413,7 +427,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=32,
+        batch_size=8,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
@@ -424,6 +438,12 @@ def create_argparser():
         max_L=1000,
         fold=2,
         transform=False,
+        subclusters_per_batch=2,
+        min_cluster_size=3,
+        max_cluster_size=10,
+        lambda_0=1.0,
+        lambda_1=0.1,
+        lambda_2=1.0,
     )
     defaults.update(mix_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
@@ -433,4 +453,3 @@ def create_argparser():
 
 if __name__ == "__main__":
     main()
-
