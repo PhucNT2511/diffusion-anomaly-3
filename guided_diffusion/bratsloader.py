@@ -32,8 +32,8 @@ class BRATSDataset(Dataset):
             df = df[df['label']==1]
         self.datapaths = df['path'].values
         # annotation flags
-        few_shot = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/few_shot_path.npy', allow_pickle=True).item()
-        self.proto_paths = few_shot[few_shot]
+        few_shot_dict = np.load('/kaggle/working/diffusion-anomaly-3/data/brats/few_shot_path.npy', allow_pickle=True).item()
+        self.proto_paths = few_shot_dict[few_shot]
         self.exist_annotation = np.array([1 if p in self.proto_paths else 0 for p in self.datapaths])
         
         # cluster labels
