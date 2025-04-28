@@ -39,7 +39,7 @@ class BRATSDataset(Dataset):
         # cluster labels
         #self.cluster_labels = self.perform_clustering()
         self.cluster_labels = pd.read_csv(
-            f'data/brats/{self.mode}_cluster_labels.csv'
+            f'data/brats/{mode}_cluster_labels.csv'
         )['cluster_label']
 
 
