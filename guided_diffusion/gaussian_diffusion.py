@@ -437,8 +437,7 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None, classifier=None, 
-                         t_set = [], cond_fn2 = None):
+    def condition_score2(self, cond_fn, p_mean_var, x, t, model_kwargs=None):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -446,152 +445,22 @@ class GaussianDiffusion:
         Unlike condition_mean(), this instead uses the conditioning strategy
         from Song et al (2020).
         """
-        t = t.long()
+        t=t.long()
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
+
         eps = self._predict_eps_from_xstart(x, t, p_mean_var["pred_xstart"])
+        # cfn is grad of classifier with being refined -- cond_fn is a function to calculate gradient of cls, but I wanna have a ddim that doesn't need func of DSlab.
+        a, cfn= cond_fn(
+            x, self._scale_timesteps(t).long(), **model_kwargs
+        )
+        eps = eps - (1 - alpha_bar).sqrt() * cfn
 
-        if (classifier is None) or (t[0] not in t_set):
-            ########### cfn is Refined Grad
-            a, cfn = cond_fn(
-                x, self._scale_timesteps(t).long(), **model_kwargs
-            )
-
-            ######### Use refined grad - Unlike condition mean, we adjust in noise
-            eps = eps - (1 - alpha_bar).sqrt() * cfn
-
-            out = p_mean_var.copy()
-            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
-            out["mean"], _, _ = self.q_posterior_mean_variance(
-                x_start=out["pred_xstart"], x_t=x, t=t
-            )
-
-            return out, cfn  ### cfn is saliency
-
-        else:
-            out = p_mean_var.copy()
-            if cond_fn2 is not None:
-                a, cfn = cond_fn2(
-                    x, self._scale_timesteps(t).long(), **model_kwargs
-                )
-            else:
-                a, cfn = cond_fn(
-                    x, self._scale_timesteps(t).long(), **model_kwargs
-                )
-            with th.enable_grad():
-                ##### Cách này đang muốn sự thay đổi nhỏ cho cfn trong khi vẫn dự đoán chính xác hơn
-                # Giả sử cfn ban đầu không thay đổi, ta chỉ học delta (điều chỉnh)
-                delta_cfn = th.zeros_like(cfn, requires_grad=True)
-                optimizer = th.optim.AdamW([delta_cfn], lr=0.001)
-
-                # Sinh ngẫu nhiên nhãn cho batch (chú ý: randint(low, high) tạo các giá trị từ low đến high-1)
-                labels = th.randint(low=0, high=1, size=(x.shape[0],), device=x.device)
-                lambda_eff = 1e3  # Hệ số cân bằng giữa loss_cls và loss_reg
-
-                for _ in range(20):
-                    print('delta_cfn (unique): ', delta_cfn.unique())
-                    optimizer.zero_grad()
-
-                    # Tính toán cfn mới dựa trên delta: giữ nguyên cfn ban đầu, chỉ cộng thêm delta
-                    new_cfn = cfn + delta_cfn
-                    print('new_cfn (unique): ', new_cfn.unique())
-
-                    # Cập nhật mean theo new_cfn
-                    mean = out["mean"] + out["variance"] * new_cfn
-
-                    # Tính toán logits từ classifier
-                    logits_new = classifier(mean, timesteps=t-1)
-                    loss_cls = F.cross_entropy(logits_new, labels, reduction='none')
-
-                    # Regularization: giảm thiểu giá trị delta (điều chỉnh)
-                    loss_reg = th.mean(th.square(delta_cfn), dim=(1, 2, 3))
-
-                    print(f'loss_reg: {loss_reg} - loss_cls: {loss_cls}')
-
-                    # Tính tổng loss: loss_cls trung bình nhân lambda_eff cộng với loss_reg trung bình
-                    loss = lambda_eff * loss_cls.mean() + loss_reg.mean()
-
-                    if not loss.requires_grad:
-                        raise RuntimeError("Loss does not require grad!")
-
-                    # Tính riêng gradient của loss_cls và loss_reg đối với delta_cfn
-                    '''
-                    grad_reg = th.autograd.grad(loss_reg.mean(), delta_cfn, retain_graph=True)[0]
-                    grad_cls = th.autograd.grad(lambda_eff * loss_cls.mean(), delta_cfn)[0]
-                    print("Grad norm từ loss_cls:", grad_cls.norm().item())
-                    print("Grad norm từ loss_reg:", grad_reg.norm().item())
-                    '''
-
-                    # Thực hiện backward cho loss tổng và cập nhật delta_cfn
-                    loss.backward()
-                    optimizer.step()
-
-                # Cập nhật cfn với delta_cfn đã được điều chỉnh
-                cfn = cfn + delta_cfn.detach()
-
-                ##### Sau khi điều chỉnh xong, nhân thêm norm(cls_x0) nếu cần (ở đây nhân với mask)
-                cfn = cfn * model_kwargs['mask'][:, None, :, :]
-
-                # Update final eps
-                eps = eps - (1 - alpha_bar).sqrt() * cfn.detach()
-
-                # Tạo dictionary output mới
-                out = p_mean_var.copy()
-                out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
-                out["mean"], _, _ = self.q_posterior_mean_variance(
-                    x_start=out["pred_xstart"], x_t=x, t=t
-                )
-
-                return out, cfn.detach()
-
-
-                '''
-                Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
-
-                # Ensure cfn requires grad
-                cfn = cfn.clone().detach().requires_grad_(True)
-                #print(f"cfn shape: {cfn.shape}, requires_grad: {cfn.requires_grad}")
-
-                # Optimizer for cfn
-                optimizer = th.optim.Adam([cfn], lr=0.0001)
-
-                labels = th.randint(
-                    low=0, high=1, size=(x.shape[0],), device=x.device
-                )
-
-                lambda_eff = 100
-
-                for _ in range(20 - 1):
-                    optimizer.zero_grad()
-                    
-                    ########### Choice 1: Use condition_score2 to estimate muy --> may not good ############
-                    
-                    # Adjust eps
-                    #eps_adj = eps - (1 - alpha_bar).sqrt() * cfn
-                    # Predict new xstart
-                    #pred_xstart = self._predict_xstart_from_eps(x, t, eps_adj)
-                    # Compute new mean
-                    #mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
-                    
-                    ########### Choice 2: Like condition_mean #############
-                    mean = out["mean"] + out["variance"] * cfn
-                    
-
-                    logits = classifier(mean, timesteps = t-1)
-        
-                    loss1 = F.cross_entropy(logits, labels, reduction="none")
-                    loss2 = th.mean(th.square(cfn), dim=(1, 2, 3))
-
-                    #print(f"loss1.requires_grad {loss1.requires_grad} - loss2.requires_grad {loss2.requires_grad}")
-                    #print(f"loss1: {loss1} - loss2: {loss2}")
-                    loss = loss1.mean() + lambda_eff * loss2.mean()
-
-                    # Check loss requires grad before backward
-                    if not loss.requires_grad:
-                        raise RuntimeError("Loss does not require grad!")
-
-                    loss.backward()
-                    optimizer.step()
-                    '''
+        out = p_mean_var.copy()
+        out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
+        out["mean"], _, _ = self.q_posterior_mean_variance(
+            x_start=out["pred_xstart"], x_t=x, t=t
+        )
+        return out, cfn
 
     ######### SAMPLE DATA FOLLOW BATCHS OF DATA:
 

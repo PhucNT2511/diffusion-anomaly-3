@@ -256,6 +256,18 @@ def main():
             mask_ann = a_masks.unsqueeze(1).float()
             loss_anno = F.binary_cross_entropy(sal_ann[a_exist==1], mask_ann[a_exist==1])
 
+            '''
+            bce = F.binary_cross_entropy_with_logits(logits, mask)
+            # Sigmoid để tính dice
+            probs = torch.sigmoid(logits)
+            inter = (probs * mask).sum(dim=(2,3))
+            union = probs.sum(dim=(2,3)) + mask.sum(dim=(2,3))
+            dice = 1 - (2*inter + 1e-6) / (union + 1e-6)
+            loss_dice = dice.mean()
+            loss = bce + loss_dice
+
+            '''
+
         # --- 3) Clustered batch ---
         try:
             c_batch, _, _, _, c_exist, c_cluster = next(c_iter)

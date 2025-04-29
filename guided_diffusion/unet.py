@@ -1212,6 +1212,6 @@ class MixedUNetModel(nn.Module):
         else:
             h = h.type(x.dtype)
 
-        return self.out_cls(h),  th.sigmoid(self.out_segment(h0))
+        return self.out_cls(h),  self.out_segment(h0)
             
 
