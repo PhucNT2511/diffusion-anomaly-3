@@ -42,12 +42,12 @@ class AttentionPool2d(nn.Module):
     def forward(self, x):
         b, c, *_spatial = x.shape
         x = x.reshape(b, c, -1)  # NC(HW)
-        x = th.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(HW+1)
+        x = th.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(HW+1) ### Thêm [CLS] token là mean vào trước
         x = x + self.positional_embedding[None, :, :].to(x.dtype)  # NC(HW+1)
         x = self.qkv_proj(x)
         x = self.attention(x)
         x = self.c_proj(x)
-        return x[:, :, 0]
+        return x[:, :, 0] #Trả về token đầu tiên (token trung tâm) → đại diện cho toàn ảnh. shape: [B,2]
 
 
 class TimestepBlock(nn.Module):
@@ -459,7 +459,7 @@ class UNetModel(nn.Module):
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
 
-        self.image_size = image_size
+        self.image_size = image_size              
         self.in_channels = in_channels
         self.model_channels = model_channels
         self.out_channels = out_channels
@@ -468,7 +468,7 @@ class UNetModel(nn.Module):
         self.dropout = dropout
         self.channel_mult = channel_mult
         self.conv_resample = conv_resample
-        self.num_classes = num_classes
+        self.num_classes = num_classes             
         self.use_checkpoint = use_checkpoint
         self.dtype = th.float16 if use_fp16 else th.float32
         self.num_heads = num_heads
