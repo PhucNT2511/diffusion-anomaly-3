@@ -461,7 +461,7 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, x_deterministic, t, model_kwargs=None, classifier=None, 
+    def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, model_kwargs=None, classifier=None, 
                      t_set=[], cond_fn2=None):
         """
         Compute what the p_mean_variance output would have been, should the
