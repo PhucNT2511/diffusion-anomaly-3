@@ -47,12 +47,12 @@ class BRATSDataset(torch.utils.data.Dataset):
         else:
             meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/val_total_authentic_and_synthetic.csv')
         self.datapaths = meta_data_df['path'].values
-        self.labels = meta_data_df['label'].values
+        self.label = meta_data_df['label'].values
         print(f'Number of {mode} data: {len(self.datapaths)}')
 
     def __getitem__(self, idx):
         data = np.load(self.datapaths[idx])
-        if self.labels[idx] == 0:
+        if self.label[idx] == 0:
             image = data['image']
         else:
             image = data
