@@ -196,7 +196,7 @@ def main():
         losses = []
         data_size = 0
         for data in data_loader:
-            batch, _, labels, _ = data
+            batch, _, labels = data
             data_size += batch.shape[0]
             batch = batch.to(dist_util.dev())
             labels= labels.to(dist_util.dev())
