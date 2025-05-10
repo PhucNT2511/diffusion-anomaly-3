@@ -58,7 +58,7 @@ class BRATSDataset(torch.utils.data.Dataset):
         for i in range(image.shape[0]):
             image[i] = normalize(image[i])
         
-        
+        padding_image = np.zeros((4, 256, 256))
         padding_image[:, 8:-8, 8:-8] = image
         
         cond = {}
