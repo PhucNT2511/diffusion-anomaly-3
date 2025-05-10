@@ -42,8 +42,10 @@ class BRATSDataset(torch.utils.data.Dataset):
         else:
             print("No data augmentation")
         
-
-        meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/total_authentic_and_synthetic.csv')
+        if mode == 'train':
+            meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/total_authentic_and_synthetic.csv')
+        else:
+            meta_data_df = pd.read_csv('/kaggle/working/diffusion-anomaly-3/data/brats/val_total_authentic_and_synthetic.csv')
         self.datapaths = meta_data_df['path'].values
         self.labels = meta_data_df['label'].values
         print(f'Number of {mode} data: {len(self.datapaths)}')
@@ -58,15 +60,18 @@ class BRATSDataset(torch.utils.data.Dataset):
         for i in range(image.shape[0]):
             image[i] = normalize(image[i])
         
-        padding_image = np.zeros((4, 256, 256))
-        padding_image[:, 8:-8, 8:-8] = image
-        
+        if image.shape == (4, 256, 256):
+            padding_image = image
+        else:
+            padding_image = np.zeros((4, 256, 256))
+            padding_image[:, 8:-8, 8:-8] = image
+
         cond = {}
-        cond['y'] = self.label
+        cond['y'] = self.label[idx]
         if self.transforms:
             padding_image = self.transforms(torch.Tensor(padding_image))
 
-        return np.float32(padding_image), cond, self.label
+        return np.float32(padding_image), cond, self.label[idx]
 
     def __len__(self):
         return len(self.datapaths)
