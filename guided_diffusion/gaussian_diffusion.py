@@ -512,9 +512,12 @@ class GaussianDiffusion:
             alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
             alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
             mean_pred_old = xstart_old * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_old
+            '''
             with th.enable_grad():
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
             logits_old = logits_old.detach()
+            '''
+            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)
 
             ###
             '''
@@ -575,10 +578,12 @@ class GaussianDiffusion:
                     alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                     
-                    logits_new = classifier(mean_pred, timesteps=t-1)
-                    
-                    bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
+                    #logits_new = classifier(mean_pred, timesteps=t-1)
+                    #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
+
+                    cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
+                    mse_loss_grad = th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="mean")
                     
 
                     '''
@@ -602,7 +607,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_1 + bce_loss_2 * 100
+                    loss_logits_main = mse_loss_grad
 
                     # --------------------------------------------------------------------------------------------------- #
 
@@ -626,9 +631,9 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
-                    print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
+                    #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
 
                     loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
