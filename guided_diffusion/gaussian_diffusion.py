@@ -512,7 +512,9 @@ class GaussianDiffusion:
             alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
             alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
             mean_pred_old = xstart_old * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_old
-            logits_old = classifier(mean_pred_old, timesteps=t-1)
+            with th.enable_grad():
+                logits_old = classifier(mean_pred_old, timesteps=t-1)
+            logits_old = logits_old.detach()
 
             ###
             '''
@@ -575,8 +577,8 @@ class GaussianDiffusion:
                     
                     logits_new = classifier(mean_pred, timesteps=t-1)
                     
-                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    # bce_loss = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
+                    #bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    bce_loss = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
                     
 
                     '''
