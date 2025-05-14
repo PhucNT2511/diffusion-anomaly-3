@@ -583,8 +583,8 @@ class GaussianDiffusion:
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
 
                     cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
-                    mse_grad = th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none")
-                    
+                    #mse_grad = th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none")
+                    mse_grad = th.mean(th.abs(cfn_new - cfn_old))
 
                     # weight mask: phần tử nào quan trọng -> weight > 0
                     weights = cfn_new.abs()  # hoặc dùng (cfn_new != 0).float() nếu chỉ muốn mask cứng
