@@ -503,7 +503,7 @@ class GaussianDiffusion:
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.SGD([cfn_optim], lr=100.0, momentum=0, weight_decay=0) ########
             lambda_eff1 = 1  #0.1
-            lambda_eff2 = 0.01  #5
+            lambda_eff2 = 1  #5
             lambda_eff3 = 100 #5
 
 
@@ -602,7 +602,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_1 + bce_loss_2 * 10
+                    loss_logits_main = bce_loss_1 + bce_loss_2 * 100
 
                     # --------------------------------------------------------------------------------------------------- #
 
