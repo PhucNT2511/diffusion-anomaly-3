@@ -583,8 +583,7 @@ class GaussianDiffusion:
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
 
                     cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
-                    mse_loss_grad = th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="mean")
-                    
+                    mse_loss_grad = th.mean(th.abs(cfn_new - cfn_old))
 
                     '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
@@ -617,7 +616,7 @@ class GaussianDiffusion:
                     #cfn_norm = cfn_optim * cfn_x0
 
                     ### L1 
-                    #loss_reg_main = th.mean(th.abs(mean_new - x_deterministic ))
+                    loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic ))
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
 
@@ -625,7 +624,7 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
 
                     ### L2
-                    loss_reg_main = th.nn.functional.mse_loss(mean_pred , x_deterministic, reduction="mean")
+                    #loss_reg_main = th.nn.functional.mse_loss(mean_pred , x_deterministic, reduction="mean")
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
