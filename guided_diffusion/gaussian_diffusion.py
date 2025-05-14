@@ -587,7 +587,7 @@ class GaussianDiffusion:
                     mse_grad = th.mean(th.abs(cfn_new - cfn_old))
 
                     # weight mask: phần tử nào quan trọng -> weight > 0
-                    weights = cfn_new.abs()  # hoặc dùng (cfn_new != 0).float() nếu chỉ muốn mask cứng
+                    weights = cfn_x0  # hoặc dùng (cfn_new != 0).float() nếu chỉ muốn mask cứng
 
                     # apply weight (mask hoặc nhấn mạnh)
                     weighted_loss = mse_grad * weights
