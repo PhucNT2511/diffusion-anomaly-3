@@ -501,7 +501,7 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
+            optimizer = th.optim.SGD([cfn_optim], lr=100.0, momentum=0, weight_decay=0) ########
             lambda_eff1 = 1  #0.1
             lambda_eff2 = 0.01  #5
             lambda_eff3 = 100 #5
@@ -577,8 +577,8 @@ class GaussianDiffusion:
                     
                     logits_new = classifier(mean_pred, timesteps=t-1)
                     
-                    #bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    bce_loss = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
+                    bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
                     
 
                     '''
@@ -602,7 +602,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss
+                    loss_logits_main = bce_loss_1 + bce_loss_2 * 0.1
 
                     # --------------------------------------------------------------------------------------------------- #
 
