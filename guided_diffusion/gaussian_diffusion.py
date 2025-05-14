@@ -507,7 +507,7 @@ class GaussianDiffusion:
             lambda_eff3 = 100 #5
 
 
-            eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
+            eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 * cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
             alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
             alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
@@ -565,7 +565,7 @@ class GaussianDiffusion:
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t --- Margin loss hoặc Dùng trực tiếp
                     #mean_new = out["mean"] + out["variance"] * cfn_optim * 100
 
-                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * 100 #* cfn_x0
+                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * 100 * cfn_x0
                     ### Hai công thức này có vẻ tương đương nhau, chẳng qua chỉ là nhân chia --> bỏ qua một trong 2
                     xstart_new = self._predict_xstart_from_eps(x, t, eps_new) 
                     '''
@@ -661,7 +661,7 @@ class GaussianDiffusion:
             ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
-            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100 #* cfn_x0 * 100
+            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100 * cfn_x0
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
             out["mean"], _, _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
