@@ -477,7 +477,7 @@ class GaussianDiffusion:
 
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
-            a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
+            a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
             out = p_mean_var.copy()
@@ -505,6 +505,14 @@ class GaussianDiffusion:
             lambda_eff1 = 1  #0.1
             lambda_eff2 = 10  #5
             lambda_eff3 = 100 #5
+
+
+            eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
+            xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
+            alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
+            alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
+            mean_pred_old = xstart_old * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_old
+            logits_old = classifier(mean_pred_old, timesteps=t-1)
 
             ###
             '''
@@ -552,7 +560,7 @@ class GaussianDiffusion:
                     # --- 1.BCE: Tính loss tổng trên đồ thị chính với cfn_optim thông qua mean_t --- Margin loss hoặc Dùng trực tiếp
                     #mean_new = out["mean"] + out["variance"] * cfn_optim * 100
 
-                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * cfn_x0 * 100
+                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * 100 #* cfn_x0
                     ### Hai công thức này có vẻ tương đương nhau, chẳng qua chỉ là nhân chia --> bỏ qua một trong 2
                     xstart_new = self._predict_xstart_from_eps(x, t, eps_new) 
                     '''
@@ -566,7 +574,9 @@ class GaussianDiffusion:
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                     
                     logits_new = classifier(mean_pred, timesteps=t-1)
-                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    
+                    # bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    bce_loss = F.cross_entropy(logits_new, logits_old, reduction="mean")
                     
 
                     '''
@@ -608,17 +618,17 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
 
                     ### L2
-                    #loss_reg_main = th.nn.functional.mse_loss(mean_new , x_deterministic)
+                    loss_reg_main = th.nn.functional.mse_loss(mean_pred , x_deterministic)
 
                     ### L2 giữa forward và backward --> đảm bảo sự thay đổi trong ảnh chỉ do những pixel tiềm năng thôi, còn lại nên bằng nhau
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad} - loss_reg_main_2: {loss_reg_main_2.requires_grad}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
 
-                    loss =  loss_logits_main #lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main + lambda_eff3 * loss_reg_main_2
-                    print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
+                    loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     loss.backward()
                     
@@ -633,7 +643,7 @@ class GaussianDiffusion:
             ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
-            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * cfn_x0 * 100
+            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100 #* cfn_x0 * 100
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
             out["mean"], _, _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
