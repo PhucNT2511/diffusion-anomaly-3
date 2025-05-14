@@ -602,7 +602,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_1 + bce_loss_2 * 100
+                    loss_logits_main = bce_loss_1 + bce_loss_2 * 1000
 
                     # --------------------------------------------------------------------------------------------------- #
 
