@@ -583,20 +583,7 @@ class GaussianDiffusion:
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
 
                     cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
-                    #mse_grad = th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none")
-                    mse_grad = th.mean(th.abs(cfn_new - cfn_old))
-
-                    # weight mask: phần tử nào quan trọng -> weight > 0
-                    #weights = cfn_new.abs()  # hoặc dùng (cfn_new != 0).float() nếu chỉ muốn mask cứng
-
-                    # apply weight (mask hoặc nhấn mạnh)
-                    #weighted_loss = mse_grad * weights
-
-                    # normalize để tránh bias khi số lượng phần tử thay đổi
-                    #mse_loss_grad = weighted_loss.sum() / weights.sum().clamp(min=1.0)
-
-                    mse_loss_grad = mse_grad
-
+                    mse_loss_grad = th.mean(th.abs(cfn_new - cfn_old))
 
                     '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
@@ -663,7 +650,7 @@ class GaussianDiffusion:
             ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
-            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100 #* cfn_x0
+            eps = eps - (1 - alpha_bar).sqrt() * cfn_updated * 100 #* cfn_x0 * 100
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
             out["mean"], _, _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
