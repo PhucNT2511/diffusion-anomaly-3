@@ -505,7 +505,14 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=50.0, momentum=0, weight_decay=0) ########
+            #optimizer = th.optim.SGD([cfn_optim], lr=50.0, momentum=0, weight_decay=0) ########
+            optimizer = th.optim.AdamW(
+                [cfn_optim],
+                lr=1e-3,
+                betas=(0.9, 0.999),
+                eps=1e-8,
+                weight_decay=0.01   # đặt weight_decay nếu cần regularization
+            ) ##### Chọn Adam vì hy vọng nó tự điều chỉnh, ko phụ thuộc initial learning rate.
             lambda_eff1 = 1000  #0.1
             lambda_eff2 = 1 #5
             lambda_eff3 = 100 #5
