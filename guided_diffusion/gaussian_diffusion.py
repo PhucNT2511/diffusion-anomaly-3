@@ -537,9 +537,7 @@ class GaussianDiffusion:
             with th.enable_grad():
                 
                 for i in range(20):
-                    optimizer.zero_grad()
-                    
-                    
+                    optimizer.zero_grad()                    
                     ###################################################################################################
                     #####################################---- Loss_1: Loss_logits -----################################
 
@@ -583,7 +581,7 @@ class GaussianDiffusion:
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
 
                     cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
-                    mse_loss_grad = th.mean(th.abs(cfn_new - cfn_old))
+                    mse_loss_grad = th.sum(th.abs(cfn_new - cfn_old)) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
 
                     '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
@@ -616,7 +614,7 @@ class GaussianDiffusion:
                     #cfn_norm = cfn_optim * cfn_x0
 
                     ### L1 
-                    loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic ))
+                    loss_reg_main = th.sum(th.abs(mean_pred - x_deterministic ))
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
 
