@@ -85,6 +85,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
     return np.array(betas)
 
 def plot_cfn_row(cfn_updated):
+        
         """
         Cộng theo chiều channel và hiển thị 16 ảnh theo 1 hàng.
         
@@ -92,19 +93,22 @@ def plot_cfn_row(cfn_updated):
             cfn_updated: Tensor (16, 4, 256, 256)
         """
         # Cộng theo chiều channel
-        cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
 
-        # Set up 1 hàng 16 cột
-        fig, axes = plt.subplots(1, cfn_sum.shape[0], figsize=(24,24.0/cfn_sum.shape[0]))
+        if cfn_updated.shape[0] > 1:
+        
+            cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
 
-        for i in range(cfn_sum.shape[0]):
-            ax = axes[i]
-            ax.imshow(cfn_sum[i], cmap='jet')
-            ax.axis('off')
-            ax.set_title(f'{i}', fontsize=8)
+            # Set up 1 hàng 16 cột
+            fig, axes = plt.subplots(1, cfn_sum.shape[0], figsize=(24,24.0/cfn_sum.shape[0]))
 
-        plt.tight_layout()
-        plt.show()
+            for i in range(cfn_sum.shape[0]):
+                ax = axes[i]
+                ax.imshow(cfn_sum[i], cmap='jet')
+                ax.axis('off')
+                ax.set_title(f'{i}', fontsize=8)
+
+            plt.tight_layout()
+            plt.show()
 
 class ModelMeanType(enum.Enum):
     """
