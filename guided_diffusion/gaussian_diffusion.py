@@ -603,7 +603,7 @@ class GaussianDiffusion:
                     #cfn_norm = cfn_optim * cfn_x0
 
                     ### L1 
-                    loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic ), dim=(1, 2, 3)))
+                    loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic), dim=(1, 2, 3)))
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
 
@@ -645,9 +645,6 @@ class GaussianDiffusion:
                     print("Cfn_optim:", cfn_optim.mean().item(), 
                         "min/max:", cfn_optim.min().item(), cfn_optim.max().item())
                     '''
-
-                    
-                    optimizer.zero_grad()
                     total_loss.backward()                    
                     optimizer.step()
 
