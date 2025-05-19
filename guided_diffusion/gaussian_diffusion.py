@@ -636,11 +636,41 @@ class GaussianDiffusion:
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
-
+                    '''
                     loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     loss.backward()
+                    '''
+
+                    # Tính grad của từng loss component:
+                    grads_logits = th.autograd.grad(
+                        outputs=loss_logits_main,
+                        inputs=cfn_optim,
+                        retain_graph=False,
+                        allow_unused=True  # nếu có thành phần không góp gradient
+                    )[0]
+
+                    grads_reg = th.autograd.grad(
+                        outputs=loss_reg_main,
+                        inputs=cfn_optim,
+                        retain_graph=False,
+                        allow_unused=True
+                    )[0]
+
+                    # In ra:
+                    print("Grad từ loss_logits_main:", grads_logits.mean().item(), 
+                        "min/max:", grads_logits.min().item(), grads_logits.max().item())
+
+                    print("Grad từ loss_reg_main:", grads_reg.mean().item(), 
+                        "min/max:", grads_reg.min().item(), grads_reg.max().item())
+                    
+                    print("Cfn_optim:", cfn_optim.mean().item(), 
+                        "min/max:", cfn_optim.min().item(), cfn_optim.max().item())
+
+                    # Nếu muốn tổng hợp lại và update cfn_optim:
+                    total_grad = lambda_eff1 * grads_logits + lambda_eff2 * grads_reg
+                    cfn_optim.grad = total_grad  # gán trực tiếp
                     
                     #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
                     optimizer.step()
