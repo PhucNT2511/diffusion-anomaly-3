@@ -511,7 +511,7 @@ class GaussianDiffusion:
                 lr=1e-3,
                 betas=(0.9, 0.999),
                 eps=1e-8,
-                weight_decay=0.01   # đặt weight_decay nếu cần regularization
+                weight_decay=0   # đặt weight_decay nếu cần regularization
             ) ##### Chọn Adam vì hy vọng nó tự điều chỉnh, ko phụ thuộc initial learning rate.
             lambda_eff1 = 1000  #0.1
             lambda_eff2 = 1 #5
