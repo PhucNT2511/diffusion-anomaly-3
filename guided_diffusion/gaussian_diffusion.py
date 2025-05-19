@@ -501,7 +501,15 @@ class GaussianDiffusion:
 
             # visualize
             plot_cfn_row(cfn) 
-
+            
+            # Tạo bản sao của cfn để tối ưu
+            cfn_optim = cfn.detach().clone().requires_grad_(True)
+            #print('cfn_optim grad: ', cfn_optim.requires_grad)
+            optimizer = th.optim.SGD([cfn_optim], lr=100, momentum=0, weight_decay=0) ########
+            #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
+            lambda_eff1 = 100  #0.1
+            lambda_eff2 = 1 #5
+            lambda_eff3 = 100 #5
 
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
@@ -516,14 +524,6 @@ class GaussianDiffusion:
             cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)           
 
             with th.enable_grad():
-                # Tạo bản sao của cfn để tối ưu
-                cfn_optim = cfn.detach().clone().requires_grad_(True)
-                #print('cfn_optim grad: ', cfn_optim.requires_grad)
-                optimizer = th.optim.SGD([cfn_optim], lr=100, momentum=0, weight_decay=0) ########
-                #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-                lambda_eff1 = 100  #0.1
-                lambda_eff2 = 1 #5
-                lambda_eff3 = 100 #5
 
                 for i in range(20):
                     optimizer.zero_grad()                    
@@ -617,7 +617,7 @@ class GaussianDiffusion:
                     # ---------------------------------------------------------------------- #
                     
                     print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
                     
                     total_loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
