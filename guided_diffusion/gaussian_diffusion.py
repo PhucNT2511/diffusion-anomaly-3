@@ -647,7 +647,7 @@ class GaussianDiffusion:
                     grads_logits = th.autograd.grad(
                         outputs=loss_logits_main,
                         inputs=cfn_optim,
-                        retain_graph=False,
+                        retain_graph=True,
                         allow_unused=True  # nếu có thành phần không góp gradient
                     )[0]
 
