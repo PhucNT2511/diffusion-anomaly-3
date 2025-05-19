@@ -519,9 +519,9 @@ class GaussianDiffusion:
                 # Tạo bản sao của cfn để tối ưu
                 cfn_optim = cfn.detach().clone().requires_grad_(True)
                 #print('cfn_optim grad: ', cfn_optim.requires_grad)
-                optimizer = th.optim.SGD([cfn_optim], lr=50, momentum=0, weight_decay=0) ########
+                optimizer = th.optim.SGD([cfn_optim], lr=100, momentum=0, weight_decay=0) ########
                 #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-                lambda_eff1 = 1000  #0.1
+                lambda_eff1 = 100  #0.1
                 lambda_eff2 = 1 #5
                 lambda_eff3 = 100 #5
 
@@ -558,11 +558,10 @@ class GaussianDiffusion:
                     alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                                        
-                    x_in = mean_pred.clone().requires_grad_(True)
-                    logits    = classifier(x_in, self._scale_timesteps(t-1).long())
-                    log_probs = F.log_softmax(logits, dim=-1)
-                    selected = log_probs[range(len(log_probs)), model_kwargs['y'].view(-1)].sum()
-                    cfn_new = torch.autograd.grad(selected, x_in, create_graph=True)[0]
+                    logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
+                    log_probs_new = F.log_softmax(logits_new, dim=-1)
+                    selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
+                    cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]
 
                     mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
 
@@ -624,7 +623,6 @@ class GaussianDiffusion:
                     total_loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
-                    #loss.backward()
                     '''
                     # 2) loss_reg_main
                     optimizer.zero_grad()
