@@ -585,6 +585,7 @@ class GaussianDiffusion:
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
 
                     cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
+                    print("cfn_new.grad_fn   :", cfn_new.grad_fn)
                     mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
 
                     '''
