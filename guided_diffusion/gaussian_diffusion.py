@@ -502,15 +502,6 @@ class GaussianDiffusion:
 
             plot_cfn_row(cfn) ### visualize
 
-            # Tạo bản sao của cfn để tối ưu
-            cfn_optim = cfn.detach().clone().requires_grad_(True)
-            #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
-            #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 1000  #0.1
-            lambda_eff2 = 1 #5
-            lambda_eff3 = 100 #5
-
 
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
@@ -540,7 +531,15 @@ class GaussianDiffusion:
             
 
             with th.enable_grad():
-                
+                # Tạo bản sao của cfn để tối ưu
+                cfn_optim = cfn.detach().clone().requires_grad_(True)
+                #print('cfn_optim grad: ', cfn_optim.requires_grad)
+                optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
+                #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
+                lambda_eff1 = 1000  #0.1
+                lambda_eff2 = 1 #5
+                lambda_eff3 = 100 #5
+
                 for i in range(20):
                     optimizer.zero_grad()                    
                     ###################################################################################################
@@ -648,7 +647,7 @@ class GaussianDiffusion:
                     grads_reg = cfn_optim.grad.clone()
 
                     optimizer.zero_grad()
-                    loss_logits_main.backward(retain_graph=True, create_graph=True)
+                    loss_logits_main.backward(retain_graph=True)
                     grads_logits = cfn_optim.grad.clone()
 
                     
