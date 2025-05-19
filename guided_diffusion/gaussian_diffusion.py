@@ -642,15 +642,16 @@ class GaussianDiffusion:
 
                     #loss.backward()
                     
+                    # 2) loss_reg_main
+                    optimizer.zero_grad()
+                    loss_reg_main.backward(retain_graph=True)
+                    grads_reg = cfn_optim.grad.clone()
 
                     optimizer.zero_grad()
                     loss_logits_main.backward(retain_graph=True)
                     grads_logits = cfn_optim.grad.clone()
 
-                    # 2) loss_reg_main
-                    optimizer.zero_grad()
-                    loss_reg_main.backward(retain_graph=True)
-                    grads_reg = cfn_optim.grad.clone()
+                    
 
                     # 3) tổng hợp và update
                     optimizer.zero_grad()
