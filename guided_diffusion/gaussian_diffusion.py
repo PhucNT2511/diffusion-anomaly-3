@@ -496,11 +496,11 @@ class GaussianDiffusion:
             out = p_mean_var.copy()
 
             cfn, a = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
-            #cfn_x0 = model_kwargs['grad_x0']
             cfn_x0 = model_kwargs["mask"][:,None,:,:]
             #cfn_x0 = model_kwargs["sample_mask"]
 
-            plot_cfn_row(cfn) ### visualize
+            # visualize
+            plot_cfn_row(cfn) 
 
 
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
@@ -513,28 +513,13 @@ class GaussianDiffusion:
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
             logits_old = logits_old.detach()
             '''
-            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)
-
-            ###
-            '''
-            mean_old = out["mean"] + out["variance"] * cfn * 100
-            cfn_t_minus_1_old,_ = cond_fn2(mean_old, self._scale_timesteps(t-1).long(), **model_kwargs)
-            '''
-
-            
-            # logits ban đầu (old_logits) tính từ mean ban đầu cộng với cfn ban đầu
-            '''
-            mean_old = out["mean"] + out["variance"] * cfn * 100
-            logits_old = classifier(mean_old, timesteps=t-1)
-            #old_loss = F.cross_entropy(logits_old, model_kwargs['y'], reduction="mean")
-            '''
-            
+            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)           
 
             with th.enable_grad():
                 # Tạo bản sao của cfn để tối ưu
                 cfn_optim = cfn.detach().clone().requires_grad_(True)
                 #print('cfn_optim grad: ', cfn_optim.requires_grad)
-                optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
+                optimizer = th.optim.SGD([cfn_optim], lr=50, momentum=0, weight_decay=0) ########
                 #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
                 lambda_eff1 = 1000  #0.1
                 lambda_eff2 = 1 #5
@@ -568,38 +553,24 @@ class GaussianDiffusion:
                     #mean_new = out["mean"] + out["variance"] * cfn_optim * 100
 
                     eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim * 100 #* cfn_x0
-                    ### Hai công thức này có vẻ tương đương nhau, chẳng qua chỉ là nhân chia --> bỏ qua một trong 2
-                    xstart_new = self._predict_xstart_from_eps(x, t, eps_new) 
-                    '''
-                    mean_new, _, _ = self.q_posterior_mean_variance(
-                        x_start=xstart_new, x_t=x, t=t
-                    )
-                    '''
-                    #eps_new_2 = self._predict_eps_from_xstart(x, t, xstart_new)
+                    xstart_new = self._predict_xstart_from_eps(x, t, eps_new)  ### Hai công thức này có vẻ tương đương nhau, chẳng qua chỉ là nhân chia --> bỏ qua một trong 2
                     alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
                     alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
-                    
+                                       
+                    x_in = mean_pred.clone().requires_grad_(True)
+                    logits    = classifier(x_in, self._scale_timesteps(t-1).long())
+                    log_probs = F.log_softmax(logits, dim=-1)
+                    selected = log_probs[range(len(log_probs)), model_kwargs['y'].view(-1)].sum()
+                    cfn_new = torch.autograd.grad(selected, x_in, create_graph=True)[0]
+
+                    mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
+
+                    '''
                     #logits_new = classifier(mean_pred, timesteps=t-1)
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
-
-                    # Tính cfn_new inline
-                    # 1) Chuẩn bị x để tính grad
-                    x_in = mean_pred.clone().requires_grad_(True)
-
-                    # 2) Forward qua classifier
-                    logits    = classifier(x_in, self._scale_timesteps(t-1).long())
-                    log_probs = F.log_softmax(logits, dim=-1)
-
-                    # 3) Chọn log-prob của nhãn y và tạo graph thứ cấp
-                    selected = log_probs[range(len(log_probs)), model_kwargs['y'].view(-1)].sum()
-                    a        = torch.autograd.grad(selected, x_in, create_graph=True)[0]
-
-                    # 4) Nhân hệ số scale
-                    cfn_new = a
-
-                    mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
+                    '''
 
                     '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
@@ -654,7 +625,7 @@ class GaussianDiffusion:
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     #loss.backward()
-                    
+                    '''
                     # 2) loss_reg_main
                     optimizer.zero_grad()
                     loss_reg_main.backward(retain_graph=True)
@@ -663,13 +634,7 @@ class GaussianDiffusion:
                     optimizer.zero_grad()
                     loss_logits_main.backward(retain_graph=True)
                     grads_logits = cfn_optim.grad.clone()
-
                     
-
-                    # 3) tổng hợp và update
-                    optimizer.zero_grad()
-                    total_loss.backward()
-
                     # In ra:
                     print("Grad từ loss_logits_main:", grads_logits.mean().item(), 
                         "min/max:", grads_logits.min().item(), grads_logits.max().item())
@@ -679,8 +644,11 @@ class GaussianDiffusion:
                     
                     print("Cfn_optim:", cfn_optim.mean().item(), 
                         "min/max:", cfn_optim.min().item(), cfn_optim.max().item())
+                    '''
+
                     
-                    #print(f"[Iter {i}] Tổng Grad (sau backward): {cfn_optim.grad.detach()}")
+                    optimizer.zero_grad()
+                    total_loss.backward()                    
                     optimizer.step()
 
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
