@@ -584,8 +584,21 @@ class GaussianDiffusion:
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     #bce_loss_2 = th.nn.functional.mse_loss(logits_new, logits_old, reduction="mean")
 
-                    cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
-                    print("cfn_new.grad_fn   :", cfn_new.grad_fn)
+                    # Tính cfn_new inline
+                    # 1) Chuẩn bị x để tính grad
+                    x_in = mean_pred.clone().requires_grad_(True)
+
+                    # 2) Forward qua classifier
+                    logits    = classifier(x_in, self._scale_timesteps(t-1).long())
+                    log_probs = F.log_softmax(logits, dim=-1)
+
+                    # 3) Chọn log-prob của nhãn y và tạo graph thứ cấp
+                    selected = log_probs[range(len(log_probs)), model_kwargs['y'].view(-1)].sum()
+                    a        = torch.autograd.grad(selected, x_in, create_graph=True)[0]
+
+                    # 4) Nhân hệ số scale
+                    cfn_new = a
+
                     mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
 
                     '''
