@@ -521,7 +521,10 @@ class GaussianDiffusion:
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
             logits_old = logits_old.detach()
             '''
-            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)           
+            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)  
+            # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
+            weights = th.abs(cfn_old / cfn_old.view(cfn_old.shape[0], cfn_old.shape[1], -1).amax(dim=2).view(cfn_old.shape[0], cfn_old.shape[1], 1, 1))
+ 
 
             with th.enable_grad():
 
@@ -564,8 +567,8 @@ class GaussianDiffusion:
                     cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
                     #cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
 
-                    mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
-                    
+                    #mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
+                    mse_loss_grad = th.sum(th.mean(weights * th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     
                     #logits_new = classifier(mean_pred, timesteps=t-1)
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
