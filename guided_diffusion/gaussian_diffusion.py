@@ -507,7 +507,7 @@ class GaussianDiffusion:
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.SGD([cfn_optim], lr=100, momentum=0, weight_decay=0) ########
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 1  #0.1
+            lambda_eff1 = 10  #0.1
             lambda_eff2 = 1 #5
             lambda_eff3 = 100 #5
 
@@ -568,7 +568,7 @@ class GaussianDiffusion:
                     #cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
 
                     #mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
-                    mse_loss_grad = th.sum(th.mean(weights * th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
+                    mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     
                     #logits_new = classifier(mean_pred, timesteps=t-1)
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
