@@ -557,12 +557,13 @@ class GaussianDiffusion:
                     alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
                     alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
-                                       
+                    '''                   
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
                     log_probs_new = F.log_softmax(logits_new, dim=-1)
                     selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
                     cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]
-
+                    '''
+                    cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
                     mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
 
                     '''
