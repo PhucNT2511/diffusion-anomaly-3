@@ -465,8 +465,8 @@ class GaussianDiffusion:
     C:/Users/DELL/Downloads/CFG_DDPM/Adjustment2CFG.PNG
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
-    def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, model_kwargs=None, classifier=None, 
-                     t_set=[], cond_fn2=None):
+    def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, x_gt = None,
+                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -521,7 +521,7 @@ class GaussianDiffusion:
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
             logits_old = logits_old.detach()
             '''
-            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)  
+            cfn_old, _ = cond_fn2(x_gt, self._scale_timesteps(t-1).long(), **model_kwargs)  
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
             weights = th.abs(cfn_old / cfn_old.view(cfn_old.shape[0], cfn_old.shape[1], -1).amax(dim=2).view(cfn_old.shape[0], cfn_old.shape[1], 1, 1))
  
