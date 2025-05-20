@@ -507,7 +507,7 @@ class GaussianDiffusion:
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.SGD([cfn_optim], lr=50, momentum=0, weight_decay=0) ########
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 500  #0.1
+            lambda_eff1 = 10  #0.1
             lambda_eff2 = 1 #5
             lambda_eff3 = 100 #5
 
@@ -564,7 +564,7 @@ class GaussianDiffusion:
                     cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
                     #cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
 
-                    mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
+                    mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
 
                     '''
                     #logits_new = classifier(mean_pred, timesteps=t-1)
@@ -621,7 +621,7 @@ class GaussianDiffusion:
                     print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
                     
-                    total_loss =  lambda_eff2 * loss_reg_main #lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
