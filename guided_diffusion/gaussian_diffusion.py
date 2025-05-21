@@ -517,7 +517,7 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
+            optimizer = th.optim.SGD([cfn_optim], lr=100.0, momentum=0, weight_decay=0) ########
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
             lambda_eff1 = 1e2  #0.1
             lambda_eff2 = 1 #5
@@ -576,17 +576,17 @@ class GaussianDiffusion:
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
-                    #log_probs_new = F.log_softmax(logits_new, dim=-1)
+                    log_probs_new = F.log_softmax(logits_new, dim=-1)
                     
-                    #selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
-                    #cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
+                    selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
+                    cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
                     #cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
 
-                    #mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
+                    mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     #mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     
                     #logits_new = classifier(mean_pred, timesteps=t-1)
-                    bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
                     #bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
                     
 
@@ -611,7 +611,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_1
+                    loss_logits_main = mse_loss_grad
                     # --------------------------------------------------------------------------------------------------- #
 
                     #######################################################################################################
@@ -622,7 +622,7 @@ class GaussianDiffusion:
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
                     #loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic), dim=(1, 2, 3)))
-                    #loss_reg_main = th.sum(th.mean(th.nn.functional.mse_loss(mean_pred, x_deterministic, reduction="none"), dim=(1,2,3)))
+                    loss_reg_main = th.sum(th.mean(th.nn.functional.mse_loss(mean_pred, x_deterministic, reduction="none"), dim=(1,2,3)))
 
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
@@ -637,12 +637,12 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
                     
-                    total_loss =  loss_logits_main #lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
