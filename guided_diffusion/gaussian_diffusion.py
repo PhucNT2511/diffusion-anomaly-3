@@ -519,7 +519,7 @@ class GaussianDiffusion:
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
             optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 1e4  #0.1
+            lambda_eff1 = 1e2  #0.1
             lambda_eff2 = 1 #5
             lambda_eff3 = 100 #5
 
@@ -621,7 +621,9 @@ class GaussianDiffusion:
                     #cfn_norm = cfn_optim * cfn_x0
 
                     ### L1 
-                    loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
+                    #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
+                    loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic), dim=(1, 2, 3)))
+
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
 
