@@ -492,6 +492,16 @@ class GaussianDiffusion:
             return out, cfn  # cfn chính là saliency
 
         else:
+            a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs, bsline="strange", base = x_deterministic)
+            eps = eps - (1 - alpha_bar).sqrt() * cfn
+
+            out = p_mean_var.copy()
+            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
+            out["mean"], _, _ = self.q_posterior_mean_variance(
+                x_start=out["pred_xstart"], x_t=x, t=t
+            )
+            return out, cfn
+        """
             t_0 = th.zeros_like(t).long()
             out = p_mean_var.copy()
 
@@ -666,7 +676,9 @@ class GaussianDiffusion:
             out["mean"], _, _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
+            
             return out, cfn_updated
+        """
 
 
             '''
