@@ -533,7 +533,7 @@ class GaussianDiffusion:
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
             logits_old = logits_old.detach()
             '''
-            cfn_old, _ = cond_fn2(mean_pred_old, self._scale_timesteps(t-1).long(), **model_kwargs)  
+            cfn_old, _ = cond_fn2(x_gt, self._scale_timesteps(t-1).long(), **model_kwargs)  
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
             weights = th.abs(cfn / cfn.view(cfn.shape[0], cfn.shape[1], -1).amax(dim=2).view(cfn.shape[0], cfn.shape[1], 1, 1))
  
@@ -578,8 +578,8 @@ class GaussianDiffusion:
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
                     log_probs_new = F.log_softmax(logits_new, dim=-1)
                     
-                    #selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
-                    #cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
+                    selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
+                    cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
                     #cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
 
                     #mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
@@ -622,7 +622,7 @@ class GaussianDiffusion:
 
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
-                    loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic), dim=(1, 2, 3)))
+                    #loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic), dim=(1, 2, 3)))
 
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
@@ -641,7 +641,7 @@ class GaussianDiffusion:
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
                     
-                    total_loss =  loss_reg_main #lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss =  loss_logits_main #lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
