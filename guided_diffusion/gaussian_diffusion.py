@@ -492,6 +492,7 @@ class GaussianDiffusion:
             return out, cfn  # cfn chính là saliency
 
         else:
+            '''
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs, bsline="strange", base = x_deterministic)
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
@@ -501,7 +502,8 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
             return out, cfn
-            """
+            '''
+            
             t_0 = th.zeros_like(t).long()
             out = p_mean_var.copy()
 
@@ -535,8 +537,8 @@ class GaussianDiffusion:
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
             weights = th.abs(cfn_old / cfn_old.view(cfn_old.shape[0], cfn_old.shape[1], -1).amax(dim=2).view(cfn_old.shape[0], cfn_old.shape[1], 1, 1))
  
-            logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
-            log_probs_old = F.log_softmax(logits_old, dim=-1)
+            #logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
+            #log_probs_old = F.log_softmax(logits_old, dim=-1)
 
             with th.enable_grad():
 
@@ -575,17 +577,17 @@ class GaussianDiffusion:
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
                     log_probs_new = F.log_softmax(logits_new, dim=-1)
-                    '''
+                    
                     selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
                     cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
                     #cfn_new, _ = cond_fn2(mean_pred, self._scale_timesteps(t-1).long(), **model_kwargs)
 
                     #mse_loss_grad = th.sum(th.mean(th.nn.functional.mse_loss(cfn_new, cfn_old, reduction="none"), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
-                    '''
+                    
                     #logits_new = classifier(mean_pred, timesteps=t-1)
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
+                    #bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
                     
 
                     '''
@@ -609,7 +611,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_2
+                    loss_logits_main = mse_loss_grad
 
                     # --------------------------------------------------------------------------------------------------- #
 
@@ -678,7 +680,7 @@ class GaussianDiffusion:
             )
             
             return out, cfn_updated
-            """
+            
 
 
             '''
