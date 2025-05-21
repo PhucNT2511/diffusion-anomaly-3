@@ -501,7 +501,7 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
             return out, cfn
-        """
+            """
             t_0 = th.zeros_like(t).long()
             out = p_mean_var.copy()
 
@@ -678,7 +678,7 @@ class GaussianDiffusion:
             )
             
             return out, cfn_updated
-        """
+            """
 
 
             '''
