@@ -517,9 +517,9 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=100, momentum=0, weight_decay=0) ########
+            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 100  #0.1
+            lambda_eff1 = 1e5  #0.1
             lambda_eff2 = 1 #5
             lambda_eff3 = 100 #5
 
