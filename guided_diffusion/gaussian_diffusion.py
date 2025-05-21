@@ -575,7 +575,7 @@ class GaussianDiffusion:
                     '''
                     #logits_new = classifier(mean_pred, timesteps=t-1)
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1,2,3)))
+                    bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
                     
 
                     '''
