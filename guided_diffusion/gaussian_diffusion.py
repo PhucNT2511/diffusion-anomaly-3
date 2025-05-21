@@ -537,8 +537,8 @@ class GaussianDiffusion:
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
             weights = th.abs(cfn / cfn.view(cfn.shape[0], cfn.shape[1], -1).amax(dim=2).view(cfn.shape[0], cfn.shape[1], 1, 1))
  
-            #logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
-            #log_probs_old = F.log_softmax(logits_old, dim=-1)
+            logits_old    = classifier(mean_pred_old, self._scale_timesteps(t-1).long()).detach()
+            log_probs_old = F.log_softmax(logits_old, dim=-1)
 
             with th.enable_grad():
 
@@ -586,8 +586,8 @@ class GaussianDiffusion:
                     #mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     
                     #logits_new = classifier(mean_pred, timesteps=t-1)
-                    bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    #bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
+                    #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
                     
 
                     '''
@@ -611,7 +611,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_1
+                    loss_logits_main = bce_loss_2
 
                     # --------------------------------------------------------------------------------------------------- #
 
