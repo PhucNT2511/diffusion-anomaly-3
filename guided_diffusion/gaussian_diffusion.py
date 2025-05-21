@@ -525,7 +525,7 @@ class GaussianDiffusion:
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
             weights = th.abs(cfn_old / cfn_old.view(cfn_old.shape[0], cfn_old.shape[1], -1).amax(dim=2).view(cfn_old.shape[0], cfn_old.shape[1], 1, 1))
  
-            logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long())
+            logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
             log_probs_old = F.log_softmax(logits_old, dim=-1)
 
             with th.enable_grad():
@@ -575,7 +575,7 @@ class GaussianDiffusion:
                     '''
                     #logits_new = classifier(mean_pred, timesteps=t-1)
                     #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    bce_loss_2 = th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="mean")
+                    bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1,2,3)))
                     
 
                     '''
