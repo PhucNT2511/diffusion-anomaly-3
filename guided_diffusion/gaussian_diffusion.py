@@ -586,8 +586,8 @@ class GaussianDiffusion:
                     #mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     
                     #logits_new = classifier(mean_pred, timesteps=t-1)
-                    #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
+                    bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    #bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
                     
 
                     '''
@@ -611,7 +611,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_2
+                    loss_logits_main = bce_loss_1
 
                     # --------------------------------------------------------------------------------------------------- #
 
@@ -641,7 +641,7 @@ class GaussianDiffusion:
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
                     
-                    total_loss =  lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss =  loss_reg_main #lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
