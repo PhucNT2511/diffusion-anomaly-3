@@ -621,7 +621,7 @@ class GaussianDiffusion:
 
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
-                    loss_reg_main = th.sum(th.mean(th.abs(mean_pred - x_deterministic) * model_kwargs["sample_mask"], dim=(1, 2, 3)))
+                    loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
                     #loss_reg_main = th.sum(th.mean(th.nn.functional.mse_loss(mean_pred, x_deterministic, reduction="none"), dim=(1,2,3)))
 
 
