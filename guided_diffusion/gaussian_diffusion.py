@@ -481,7 +481,7 @@ class GaussianDiffusion:
 
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
-            a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
+            a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
             eps = eps - (1 - alpha_bar).sqrt() * cfn
 
             out = p_mean_var.copy()
@@ -490,7 +490,8 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
             return out, cfn  # cfn chính là saliency
-
+    
+        
         else:
             '''
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs, bsline="strange", base = x_deterministic)
@@ -517,21 +518,23 @@ class GaussianDiffusion:
             # Tạo bản sao của cfn để tối ưu
             cfn_optim = cfn.detach().clone().requires_grad_(True)
             #print('cfn_optim grad: ', cfn_optim.requires_grad)
-            optimizer = th.optim.SGD([cfn_optim], lr=100.0, momentum=0, weight_decay=0) ########
+            optimizer = th.optim.SGD([cfn_optim], lr=0.1, momentum=0, weight_decay=0) ########
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 1e2  #0.1
-            lambda_eff2 = 1 #5
+            lambda_eff1 = 1  #
+            lambda_eff2 = 0.1 #
             lambda_eff3 = 100 #5
-
+            '''
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
             alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
             alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
             mean_pred_old = xstart_old * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_old
             '''
+            '''
             with th.enable_grad():
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
             logits_old = logits_old.detach()
+            '''
             '''
             cfn_old, _ = cond_fn2(x_gt, self._scale_timesteps(t-1).long(), **model_kwargs)  
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
@@ -539,6 +542,7 @@ class GaussianDiffusion:
  
             logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
             log_probs_old = F.log_softmax(logits_old, dim=-1)
+            '''
 
             with th.enable_grad():
 
@@ -550,7 +554,7 @@ class GaussianDiffusion:
                     '''
                     # --- 1.MSE: Tính loss theo logits với hàm MSE --- Tôi đã thay đổi cfn và ép đầu ra của chúng ta như nhau, điều này khá tệ, vì 2 logits đầu ra dù giống nhau nhưng những layer trước đó có nhiều nơ-ron, có thể dù cho đầu ra cùng xác suất nhưng chúng đang chú ý vào những vùng khác nhau, có thể xa dời trung tâm
                     # logits mới được tính từ mean có thêm cfn_optim
-                    mean_new = out["mean"] + out["variance"] * cfn_optim * 100
+                    #                     mean_new = out["mean"] + out["variance"] * cfn_optim * 100
                     logits_new = classifier(mean_new, timesteps=t-1)
 
                     mse_loss = th.nn.functional.mse_loss(logits_new, logits_old)
@@ -621,8 +625,8 @@ class GaussianDiffusion:
 
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
-                    loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
-                    #loss_reg_main = th.sum(th.mean(th.nn.functional.mse_loss(mean_pred, x_deterministic, reduction="none"), dim=(1,2,3)))
+                    #loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
+                    loss_reg_main = th.nn.functional.mse_loss(cfn_optim, cfn, reduction="mean")
 
 
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
@@ -683,10 +687,10 @@ class GaussianDiffusion:
             )
             
             return out, cfn_updated
-            
+        
 
 
-            '''
+        '''
             Cách này đang muốn cfn nhỏ mà túm tụm (avg trên toàn ảnh)
 
             # Ensure cfn requires grad
@@ -733,7 +737,7 @@ class GaussianDiffusion:
 
                 loss.backward()
                 optimizer.step()
-                '''
+        '''
 
     ######### SAMPLE DATA FOLLOW BATCHS OF DATA:
 
