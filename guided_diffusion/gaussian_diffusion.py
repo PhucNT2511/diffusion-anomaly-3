@@ -547,7 +547,7 @@ class GaussianDiffusion:
                 # Tạo bản sao của cfn để tối ưu
                 cfn_optim = cfn.detach().clone().requires_grad_(True)
                 #print('cfn_optim grad: ', cfn_optim.requires_grad)
-                optimizer = th.optim.SGD([cfn_optim], lr=100.0, momentum=0, weight_decay=0) ########
+                optimizer = th.optim.SGD([cfn_optim], lr=10.0, momentum=0, weight_decay=0) ########
                 for i in range(10):
                     optimizer.zero_grad()                    
                     ###################################################################################################
@@ -628,7 +628,7 @@ class GaussianDiffusion:
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
                     #loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
-                    #loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
+                    loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
 
                     ### Chỉ giữ lại ít nhưng cần thiết
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim_1))
@@ -643,12 +643,12 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
                     
-                    total_loss = lambda_eff1 * loss_logits_main  #+ lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss = lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
