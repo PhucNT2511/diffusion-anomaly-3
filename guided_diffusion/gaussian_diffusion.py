@@ -466,7 +466,7 @@ class GaussianDiffusion:
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
     def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, x_gt = None,
-                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None):
+                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -525,13 +525,14 @@ class GaussianDiffusion:
             lambda_eff1 = 16  #
             lambda_eff2 = 16*0.1*256*256 #
             #lambda_eff3 = 0.001*256*256 #
-            '''
-            eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
+            
+            eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 * cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
             alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
             alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
             mean_pred_old = xstart_old * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_old
-            '''
+            selected = probs(mean_pred_old, t-1, model_kwargs['y'])
+            print('selected_old: ',selected)
             '''
             with th.enable_grad():
                 logits_old = classifier(mean_pred_old, timesteps=t-1)
