@@ -538,10 +538,10 @@ class GaussianDiffusion:
             cfn_old, _ = cond_fn2(x_gt, self._scale_timesteps(t-1).long(), **model_kwargs)  
             # Max theo mỗi batch và mỗi channel => shape (B, C, 1, 1)
             weights = th.abs(cfn / cfn.view(cfn.shape[0], cfn.shape[1], -1).amax(dim=2).view(cfn.shape[0], cfn.shape[1], 1, 1))
- 
-            logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
-            log_probs_old = F.log_softmax(logits_old, dim=-1)
             '''
+            logits_old    = classifier(x_gt, self._scale_timesteps(t-1).long()).detach()
+            probs_old = F.softmax(logits_old, dim=-1)
+            
 
             with th.enable_grad():
                 # Tạo bản sao của cfn để tối ưu
@@ -583,7 +583,7 @@ class GaussianDiffusion:
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
-                    #log_probs_new = F.log_softmax(logits_new, dim=-1)
+                    probs_new = F.softmax(logits_new, dim=-1)
                     
                     #selected = log_probs_new[range(len(log_probs_new)), model_kwargs['y'].view(-1)].sum()
                     #cfn_new = torch.autograd.grad(selected, mean_pred, create_graph=True)[0]                  
@@ -593,9 +593,8 @@ class GaussianDiffusion:
                     #mse_loss_grad = th.sum(th.mean(th.abs(cfn_new - cfn_old), dim=(1,2,3))) ## sum() vì mean() sẽ bị scale, dù grad thì vẫn luôn độc lập giữa căc ảnh trong batch. Bởi lẽ, việc training inputs độc lập, ko phải training mạng shared giữa các input mà cần scale.
                     
                     #logits_new = classifier(mean_pred, timesteps=t-1)
-                    bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
-                    #bce_loss_2 = th.sum(th.mean(th.nn.functional.mse_loss(log_probs_new, log_probs_old, reduction="none"), dim=(1)))
-                    
+                    #bce_loss_1 = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    bce_loss_2 = th.nn.functional.mse_loss(probs_new, probs_old, reduction="mean")                    
 
                     '''
                     ### Margin_loss - Tôi đã thay đổi cfn rồi, nhưng cls vẫn phân loại tốt tôi, chứng tỏ tôi đang đến gần mean hơn??
@@ -618,7 +617,7 @@ class GaussianDiffusion:
                     print('mse_loss_grad', mse_loss.requires_grad)
                     '''
                     
-                    loss_logits_main = bce_loss_1
+                    loss_logits_main = bce_loss_2
                     # --------------------------------------------------------------------------------------------------- #
 
                     #######################################################################################################
@@ -629,7 +628,7 @@ class GaussianDiffusion:
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
                     #loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
-                    loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
+                    #loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
 
                     ### Chỉ giữ lại ít nhưng cần thiết
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim_1))
@@ -644,12 +643,12 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
-                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
+                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
                     
-                    total_loss = lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss = lambda_eff1 * loss_logits_main # + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
