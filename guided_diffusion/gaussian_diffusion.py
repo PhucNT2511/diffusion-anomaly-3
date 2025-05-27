@@ -524,7 +524,7 @@ class GaussianDiffusion:
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
             lambda_eff1 = 1  #
             lambda_eff2 = 0.1*256*256 #
-            lambda_eff3 = 100 #5
+            lambda_eff3 = 0.01*256*256 #
             '''
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 #* cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
@@ -628,10 +628,10 @@ class GaussianDiffusion:
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
                     #loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
-                    loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean")
+                    loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
 
-
-                    #loss_reg_main_2 = th.mean(th.abs(cfn_optim * cfn_x0))
+                    ### Chỉ giữ lại ít nhưng cần thiết
+                    loss_reg_main_2 = th.mean(th.abs(cfn_optim_1))
 
                     ### L2
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_norm , torch.zeros_like(cfn_norm))
@@ -644,11 +644,11 @@ class GaussianDiffusion:
                     # ---------------------------------------------------------------------- #
                     
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
-                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
-                    #print(f'Time {int(t[0])} - bce_loss_1: {bce_loss_1} - bce_loss_2: {bce_loss_2} - loss_reg_main: {loss_reg_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
                     
-                    total_loss = lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss = lambda_eff1 * loss_logits_main  + lambda_eff2 * loss_reg_main + lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
