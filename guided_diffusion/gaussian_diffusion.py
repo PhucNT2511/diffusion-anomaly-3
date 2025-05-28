@@ -537,8 +537,8 @@ class GaussianDiffusion:
             
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
             lambda_eff1 = 1  #
-            lambda_eff2 = 0.1*256*256 #
-            lambda_eff3 = 0.1*256*256 #
+            lambda_eff2 = 1 #
+            lambda_eff3 = 1 #
             
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 * cfn_x0
             xstart_old = self._predict_xstart_from_eps(x, t, eps_old) 
