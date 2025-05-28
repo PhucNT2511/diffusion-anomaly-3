@@ -490,7 +490,7 @@ class GaussianDiffusion:
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
             
-            return out, eps, cfn  # cfn chính là saliency
+            return out, cfn  # cfn chính là saliency
             '''
             out["mean"], out['variance'], _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
