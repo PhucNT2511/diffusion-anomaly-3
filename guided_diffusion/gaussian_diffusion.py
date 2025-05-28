@@ -485,7 +485,17 @@ class GaussianDiffusion:
             print('first cfn: ')
             plot_cfn_row(a.detach().cpu())
             ### 
-            eps = eps - (1 - alpha_bar).sqrt() * cfn
+            eps = eps - (1 - alpha_bar).sqrt() * cfn ## Đây chính là - score
+            
+            out = p_mean_var.copy()
+            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
+            
+            return out, eps, cfn  # cfn chính là saliency
+            '''
+            out["mean"], out['variance'], _ = self.q_posterior_mean_variance(
+                x_start=out["pred_xstart"], x_t=x, t=t
+            )
+            '''
             '''
             for _ in range(N_corr):
                 # reconstruct x_t from current eps
@@ -498,16 +508,6 @@ class GaussianDiffusion:
                 # update eps deterministically
                 eps = eps - grad_eps
             '''
-            out = p_mean_var.copy()
-            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
-            '''
-            out["mean"], out['variance'], _ = self.q_posterior_mean_variance(
-                x_start=out["pred_xstart"], x_t=x, t=t
-            )
-            '''
-            return out, eps, cfn  # cfn chính là saliency
-    
-        
         else:
             '''
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs, bsline="strange", base = x_deterministic)
@@ -535,7 +535,7 @@ class GaussianDiffusion:
             
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
             lambda_eff1 = 1  #
-            lambda_eff2 = 10*256*256 #
+            lambda_eff2 = 256*256 #
             #lambda_eff3 = 0.001*256*256 #
             
             eps_old = eps - (1 - alpha_bar).sqrt() * cfn * 100 * cfn_x0
@@ -643,7 +643,7 @@ class GaussianDiffusion:
 
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
-                    #loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
+                    loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
                     #loss_reg_main = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
 
                     ### Chỉ giữ lại ít nhưng cần thiết
@@ -659,12 +659,12 @@ class GaussianDiffusion:
                     #loss_reg_main = th.nn.functional.mse_loss(mean_new, model_kwargs['noising'][int(t[0]-1)]) # có thể nhân thêm: (1 - cfn_x0[:, None, :, :]) cho từng cái, thì sẽ loại bỏ bớt những cái tiềm năng
                     # ---------------------------------------------------------------------- #
                     
-                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
                     
-                    total_loss = lambda_eff1 * loss_logits_main #+ lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
+                    total_loss = lambda_eff1 * loss_logits_main + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
