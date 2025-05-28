@@ -466,7 +466,7 @@ class GaussianDiffusion:
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
     def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, x_gt = None,
-                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None, N_corr=5):
+                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None, N_corr=3):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -482,6 +482,8 @@ class GaussianDiffusion:
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
+            print('first cfn: ')
+            plot_cfn_row(a.detach().cpu())
             ### Corrector
             eps = eps - (1 - alpha_bar).sqrt() * cfn
             for _ in range(N_corr):
@@ -489,7 +491,8 @@ class GaussianDiffusion:
                 x0      = self._predict_xstart_from_eps(x, t, eps)
                 recon, _, _ = self.q_posterior_mean_variance(x_start=x0, x_t=x, t=t)
                 # classifier gradient on recon
-                _, grad_logp = cond_fn(recon, self._scale_timesteps(t), **(model_kwargs or {}))
+                a, grad_logp = cond_fn(recon, self._scale_timesteps(t), **(model_kwargs or {}))
+                plot_cfn_row(a.detach().cpu())  # visualize cfn
                 # map to eps-space gradient using alpha_bar
                 grad_eps = th.sqrt(1 - alpha_bar) * grad_logp
                 # update eps deterministically
