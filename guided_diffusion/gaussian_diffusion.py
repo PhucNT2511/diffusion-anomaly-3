@@ -646,7 +646,7 @@ class GaussianDiffusion:
                     ### L1 
                     #loss_reg_main = th.sum(th.mean(th.abs(cfn_optim), dim=(1, 2, 3)))
                     loss_reg_main = th.mean(th.abs(mean_pred - x_deterministic))
-                    loss_reg_main_2 = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
+                    #loss_reg_main_2 = th.nn.functional.mse_loss(cfn_1, cfn_optim_1, reduction="mean") ### Thay đổi nhưng phải giống với ban đầu để ko lạc sang grad của cái khác
 
                     ### Chỉ giữ lại ít nhưng cần thiết
                     #loss_reg_main_2 = th.mean(th.abs(cfn_optim_1))
@@ -662,11 +662,11 @@ class GaussianDiffusion:
                     # ---------------------------------------------------------------------- #
                     
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main}')
-                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
+                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main}')
                     #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main.requires_grad} - loss_reg_main: {loss_reg_main.requires_grad}')
-                    print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
+                    #print(f'Time {int(t[0])} - loss_logits_main: {loss_logits_main} - loss_reg_main: {loss_reg_main} - loss_reg_main_2: {loss_reg_main_2}')
                     
-                    total_loss = lambda_eff1 * loss_logits_main + lambda_eff2 * loss_reg_main + lambda_eff3 * loss_reg_main_2
+                    total_loss = lambda_eff1 * loss_logits_main + lambda_eff2 * loss_reg_main #+ lambda_eff3 * loss_reg_main_2
                     #print(f'Time {int(t[0])} - loss: {loss} - requires_grad: {loss.requires_grad}')
 
                     '''
