@@ -466,7 +466,7 @@ class GaussianDiffusion:
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
     def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, x_gt = None,
-                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None):
+                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None, N_corr=5):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -482,7 +482,18 @@ class GaussianDiffusion:
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
+            ### Corrector
             eps = eps - (1 - alpha_bar).sqrt() * cfn
+            for _ in range(N_corr):
+                # reconstruct x_t from current eps
+                x0      = self._predict_xstart_from_eps(x, t, eps)
+                recon, _, _ = self.q_posterior_mean_variance(x_start=x0, x_t=x, t=t)
+                # classifier gradient on recon
+                _, grad_logp = cond_fn(recon, self._scale_timesteps(t), **(model_kwargs or {}))
+                # map to eps-space gradient using alpha_bar
+                grad_eps = th.sqrt(1 - alpha_bar) * grad_logp
+                # update eps deterministically
+                eps = eps - grad_eps
 
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
