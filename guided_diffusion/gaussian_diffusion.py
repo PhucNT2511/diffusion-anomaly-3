@@ -548,7 +548,7 @@ class GaussianDiffusion:
                 cfn_optim = cfn.detach().clone().requires_grad_(True)
                 #print('cfn_optim grad: ', cfn_optim.requires_grad)
                 #optimizer = th.optim.SGD([cfn_optim], lr=10.0, momentum=0, weight_decay=0) ########
-                optimizer = th.optim.Adam([cfn_optim], lr=0.001, betas=(0.9, 0.999), eps=1e-12)
+                optimizer = th.optim.Adam([cfn_optim], lr=0.0001, betas=(0.9, 0.999), eps=1e-12)
                 for i in range(10):
                     optimizer.zero_grad()                    
                     ###################################################################################################
