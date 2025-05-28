@@ -215,7 +215,7 @@ class GaussianDiffusion:
             np.append(self.posterior_variance[1], self.posterior_variance[1:])
         )
 
-        ### μ_t = posterior_mean_coef1.x_0 + posterior_mean_coef2.x_t 
+        ### μ_(t-1) = posterior_mean_coef1.x_0 + posterior_mean_coef2.x_t 
         self.posterior_mean_coef1 = (
             betas * np.sqrt(self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
         )
@@ -484,26 +484,28 @@ class GaussianDiffusion:
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
             print('first cfn: ')
             plot_cfn_row(a.detach().cpu())
-            ### Corrector
+            ### 
             eps = eps - (1 - alpha_bar).sqrt() * cfn
+            '''
             for _ in range(N_corr):
                 # reconstruct x_t from current eps
                 x0      = self._predict_xstart_from_eps(x, t, eps)
-                recon, _, _ = self.q_posterior_mean_variance(x_start=x0, x_t=x, t=t)
+                recon, _, _ = self.q_posterior_mean_variance(x_start=x0, x_t=x, t=t) ## recon là mean_t-1
                 # classifier gradient on recon
                 a, grad_logp = cond_fn(recon, self._scale_timesteps(t), **(model_kwargs or {}))
-                plot_cfn_row(a.detach().cpu())  # visualize cfn
                 # map to eps-space gradient using alpha_bar
                 grad_eps = th.sqrt(1 - alpha_bar) * grad_logp
                 # update eps deterministically
                 eps = eps - grad_eps
-
+            '''
             out = p_mean_var.copy()
-            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
-            out["mean"], _, _ = self.q_posterior_mean_variance(
+            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
+            '''
+            out["mean"], out['variance'], _ = self.q_posterior_mean_variance(
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
-            return out, cfn  # cfn chính là saliency
+            '''
+            return out, eps, cfn  # cfn chính là saliency
     
         
         else:
