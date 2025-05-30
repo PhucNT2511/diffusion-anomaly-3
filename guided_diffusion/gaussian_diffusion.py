@@ -482,8 +482,8 @@ class GaussianDiffusion:
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
-            print('first cfn: ')
-            plot_cfn_row(a.detach().cpu())
+            #print('first cfn: ')
+            #plot_cfn_row(a.detach().cpu())
             ### 
             eps = eps - (1 - alpha_bar).sqrt() * cfn ## Đây chính là - score
             
@@ -695,7 +695,7 @@ class GaussianDiffusion:
             # Sau tối ưu, cập nhật cfn với giá trị của cfn_optim
             cfn_updated = cfn_optim.detach()
 
-            plot_cfn_row(cfn_updated) ### visualize
+            #plot_cfn_row(cfn_updated) ### visualize
 
             ### vẽ cfn_updated ra màn hình bằng plt, biết có kích thước (16,4,256,256)
 
