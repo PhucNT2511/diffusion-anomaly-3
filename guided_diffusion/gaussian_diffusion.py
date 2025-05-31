@@ -95,8 +95,10 @@ def plot_cfn_row(cfn_updated):
         # Cộng theo chiều channel
 
         if cfn_updated.shape[0] > 1:
-        
-            cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
+            if cfn_updated.dim() == 4: 
+                cfn_sum = cfn_updated.detach().cpu().sum(dim=1)  # shape: (16, 256, 256)
+            else:
+                cfn_sum = cfn_updated.detach().cpu()
 
             # Set up 1 hàng 16 cột
             fig, axes = plt.subplots(1, cfn_sum.shape[0], figsize=(24,24.0/cfn_sum.shape[0]))
