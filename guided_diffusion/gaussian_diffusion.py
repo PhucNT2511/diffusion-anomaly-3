@@ -530,9 +530,9 @@ class GaussianDiffusion:
                     optimizer.zero_grad()
 
                     # tạo mask nhị phân mềm
-                    mask_soft = th.sigmoid(mask_logits)  # in (0,1)
+                    mask = th.sigmoid(mask_logits)  # in (0,1)
                     # option: làm "binarization" nhẹ
-                    mask = (mask_soft > 0.5).float()
+                    #mask = (mask_soft > 0.5).float()
 
                     cfn_optim_1 = cfn * mask[:, None, :, :]  # broadcasting channel dimension if needed
                     eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim_1 * 100
@@ -559,8 +559,8 @@ class GaussianDiffusion:
 
             mask_logits = mask_logits.detach()
             # Chuyển đổi mask_logits về dạng nhị phân
-            mask_soft = th.sigmoid(mask_logits)  # in (0,1)
-            mask = (mask_soft > 0.5).float()  # Binarization
+            mask = th.sigmoid(mask_logits)  # in (0,1)
+            #mask = (mask_soft > 0.5).float()  # Binarization
 
             plot_cfn_row(mask.detach().cpu())  # visualize mask
 
