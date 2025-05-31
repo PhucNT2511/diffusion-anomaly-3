@@ -551,6 +551,8 @@ class GaussianDiffusion:
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
                     total_loss = bce_loss + loss_sparsity * 10
 
+                    print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Sparsity Loss: {loss_sparsity.item()}")
+
                     total_loss.backward()
                     optimizer.step()
 
