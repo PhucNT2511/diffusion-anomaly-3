@@ -521,7 +521,7 @@ class GaussianDiffusion:
 
             with th.enable_grad():
                 # khởi tạo mask logits (vì sigmoid(logits) ~ 1)
-                mask_logits = th.nn.Parameter(torch.ones(B, H, W).cuda()).requires_grad_(True)
+                mask_logits = th.nn.Parameter(th.ones(B, H, W).cuda()).requires_grad_(True)
 
                 # optimizer cho mask_logits
                 optimizer = th.optim.Adam([mask_logits], lr=1e-2)
