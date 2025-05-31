@@ -554,6 +554,7 @@ class GaussianDiffusion:
                     print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Sparsity Loss: {loss_sparsity.item()}")
 
                     total_loss.backward()
+                    print(mask_logits.grad.abs().mean())
                     optimizer.step()
 
             mask_logits = mask_logits.detach()
