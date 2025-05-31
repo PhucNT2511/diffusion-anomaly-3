@@ -557,6 +557,8 @@ class GaussianDiffusion:
             mask_soft = th.sigmoid(mask_logits)  # in (0,1)
             mask = (mask_soft > 0.5).float()  # Binarization
 
+            plot_cfn_row(mask.detach().cpu())  # visualize mask
+
             cfn = cfn * mask[:, None, :, :] * 100 # áp dụng mask vào cfn
             # Cập nhật final eps dựa trên cfn đã được điều chỉnh
             eps = eps - (1 - alpha_bar).sqrt() * cfn
