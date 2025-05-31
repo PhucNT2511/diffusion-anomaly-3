@@ -468,7 +468,7 @@ class GaussianDiffusion:
     We use (new noise eps) and x_t to predict x_0; then utilize the x_0 and x_t to predict x_{t-1}  
     '''
     def condition_score2(self, cond_fn, p_mean_var, x, t, x_deterministic = None, x_gt = None,
-                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None, N_corr=3):
+                         model_kwargs=None, classifier=None, t_set=[], cond_fn2=None, probs=None, mask_logits_prev = None):
         """
         Compute what the p_mean_variance output would have been, should the
         model's score function be conditioned by cond_fn.
@@ -520,8 +520,11 @@ class GaussianDiffusion:
             B, C, H, W = cfn.shape
 
             with th.enable_grad():
-                # khởi tạo mask logits (vì sigmoid(logits) ~ 1)
-                mask_logits = th.nn.Parameter(th.ones(B, H, W).cuda()).requires_grad_(True)
+                if mask_logits_prev is not None:
+                    mask_logits = th.nn.Parameter(mask_logits_prev.detach().clone()).requires_grad_(True)
+                else:
+                    mask_logits = th.nn.Parameter(th.ones(B, H, W).cuda()).requires_grad_(True)
+
 
                 # optimizer cho mask_logits
                 optimizer = th.optim.Adam([mask_logits], lr=1e-2)
@@ -549,7 +552,7 @@ class GaussianDiffusion:
                     loss_sparsity = mask.mean()
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
-                    total_loss = bce_loss + loss_sparsity * 10
+                    total_loss = bce_loss + loss_sparsity
 
                     print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Sparsity Loss: {loss_sparsity.item()}")
 
@@ -572,7 +575,7 @@ class GaussianDiffusion:
                 x_start=out["pred_xstart"], x_t=x, t=t
             )
             
-            return out, cfn
+            return out, cfn, mask_logits
 
             """
             '''
