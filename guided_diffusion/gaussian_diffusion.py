@@ -537,6 +537,8 @@ class GaussianDiffusion:
                     # option: làm "binarization" nhẹ
                     #mask = (mask_soft > 0.5).float()
 
+                    one_minus_mask = 1 - mask
+
                     cfn_optim_1 = cfn * mask[:, None, :, :]  # broadcasting channel dimension if needed
                     eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim_1 * 100
                     xstart_new = self._predict_xstart_from_eps(x, t, eps_new)  ### Hai công thức này có vẻ tương đương nhau, chẳng qua chỉ là nhân chia --> bỏ qua một trong 2
@@ -552,7 +554,7 @@ class GaussianDiffusion:
                     loss_sparsity = mask.mean()
 
                     #
-                    reg_loss = F.mse_loss(mean_pred, x_deterministic, reduction='mean')
+                    reg_loss = F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
                     total_loss = bce_loss + reg_loss + loss_sparsity
