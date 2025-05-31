@@ -549,12 +549,15 @@ class GaussianDiffusion:
 
                     
                     # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
-                    loss_sparsity = mask.mean()
+                    #loss_sparsity = mask.mean()
+
+                    #
+                    reg_loss = F.mse_loss(mean_pred, x_deterministic, reduction='mean')
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
-                    total_loss = bce_loss + loss_sparsity
+                    total_loss = bce_loss + reg_loss
 
-                    print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Sparsity Loss: {loss_sparsity.item()}")
+                    print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Regularization loss: {reg_loss.item()}")
 
                     total_loss.backward()
                     print(mask_logits.grad.abs().mean())
