@@ -511,6 +511,63 @@ class GaussianDiffusion:
                 eps = eps - grad_eps
             '''
         else:
+            out = p_mean_var.copy()
+            cfn, a = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
+
+            # giả sử refine có shape (B, C, H, W)
+            B, C, H, W = cfn.shape
+
+            with th.enable_grad():
+                # khởi tạo mask logits (vì sigmoid(logits) ~ 1)
+                mask_logits = th.nn.Parameter(torch.ones(B, H, W).cuda())
+
+                # optimizer cho mask_logits
+                optimizer = th.optim.Adam([mask_logits], lr=1e-2)
+
+                for step in range(10):
+                    optimizer.zero_grad()
+
+                    # tạo mask nhị phân mềm
+                    mask_soft = th.sigmoid(mask_logits)  # in (0,1)
+                    # option: làm "binarization" nhẹ
+                    mask = (mask_soft > 0.5).float()
+
+                    cfn_optim_1 = cfn * mask[:, None, :, :]  # broadcasting channel dimension if needed
+                    eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim_1 * 100
+                    xstart_new = self._predict_xstart_from_eps(x, t, eps_new)  ### Hai công thức này có vẻ tương đương nhau, chẳng qua chỉ là nhân chia --> bỏ qua một trong 2
+                    alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
+                    alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
+                    mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
+                                      
+                    logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
+                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+
+                    
+                    # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
+                    loss_sparsity = mask.mean()
+
+                    # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
+                    total_loss = bce_loss + loss_sparsity * 10
+
+                    total_loss.backward()
+                    optimizer.step()
+
+            mask_logits = mask_logits.detach()
+            # Chuyển đổi mask_logits về dạng nhị phân
+            mask_soft = th.sigmoid(mask_logits)  # in (0,1)
+            mask = (mask_soft > 0.5).float()  # Binarization
+
+            cfn = cfn * mask[:, None, :, :] * 100 # áp dụng mask vào cfn
+            # Cập nhật final eps dựa trên cfn đã được điều chỉnh
+            eps = eps - (1 - alpha_bar).sqrt() * cfn
+            out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps)
+            out["mean"], _, _ = self.q_posterior_mean_variance(
+                x_start=out["pred_xstart"], x_t=x, t=t
+            )
+            
+            return out, cfn
+
+            """
             '''
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs, bsline="strange", base = x_deterministic)
             eps = eps - (1 - alpha_bar).sqrt() * cfn
@@ -523,12 +580,11 @@ class GaussianDiffusion:
             return out, cfn
             '''
             
-            t_0 = th.zeros_like(t).long()
             out = p_mean_var.copy()
 
             cfn, a = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
             cfn_x0 = model_kwargs["mask"][:,None,:,:]
-            #cfn_x0 = model_kwargs["sample_mask"]
+
 
             # visualize
             plot_cfn_row(cfn) 
@@ -536,7 +592,7 @@ class GaussianDiffusion:
             cfn_1 = cfn * cfn_x0
             
             #optimizer = th.optim.Adam([cfn_optim], lr=0.01, betas=(0.9, 0.999), eps=1e-12) ########
-            lambda_eff1 = 1  #
+            lambda_eff1 = 1 #
             lambda_eff2 = 1 #
             lambda_eff3 = 1 #
             
@@ -707,7 +763,8 @@ class GaussianDiffusion:
             )
             
             return out, cfn_updated
-        
+            """
+
 
 
         '''
