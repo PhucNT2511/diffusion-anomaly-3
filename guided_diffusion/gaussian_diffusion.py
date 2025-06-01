@@ -554,7 +554,7 @@ class GaussianDiffusion:
                     reg_loss_2 = mask.mean() * t[0] / 498.0 ### cái này là ko cần thiết phải min, lúc đầu nên min, về cuối nới lỏng dần.
 
                     #
-                    reg_loss_1 = F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
+                    reg_loss_1 = 0.01 * F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
                     #reg_loss_2 = 10 * F.mse_loss(mask, model_kwargs['mask'], reduction='mean')
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
