@@ -554,7 +554,8 @@ class GaussianDiffusion:
                     loss_sparsity = mask.mean()
 
                     #
-                    reg_loss = F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
+                    #reg_loss = F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
+                    reg_loss = F.mse_loss(mask, model_kwargs['mask'], reduction='mean')
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
                     total_loss = bce_loss + reg_loss + loss_sparsity
