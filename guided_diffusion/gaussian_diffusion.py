@@ -547,20 +547,20 @@ class GaussianDiffusion:
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
-                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean")
+                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean") * (498.0-t[0]) / 498.0 
 
                     
                     # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
-                    loss_sparsity = mask.mean()
+                    #loss_sparsity = mask.mean()
 
                     #
                     #reg_loss = F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
                     reg_loss = F.mse_loss(mask, model_kwargs['mask'], reduction='mean')
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
-                    total_loss = bce_loss + reg_loss + loss_sparsity
+                    total_loss = bce_loss + reg_loss #+ loss_sparsity
 
-                    print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Regularization loss: {reg_loss.item(),}, Sparsity loss: {loss_sparsity.item()}")
+                    print(f"Step {step}, Loss: {total_loss.item()}, BCE Loss: {bce_loss.item()}, Regularization loss: {reg_loss.item(),}") #, Sparsity loss: {loss_sparsity.item()}")
 
                     total_loss.backward()
                     print(mask_logits.grad.abs().mean())
