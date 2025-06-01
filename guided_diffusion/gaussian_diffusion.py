@@ -551,7 +551,7 @@ class GaussianDiffusion:
 
                     
                     # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
-                    reg_loss_2 = mask.mean() * t[0] / 498.0 ### cái này là ko cần thiết phải min, lúc đầu nên min, về cuối nới lỏng dần.
+                    reg_loss_2 = mask.mean() * t[0] / 498.0 * 10 ### cái này là ko cần thiết phải min, lúc đầu nên min, về cuối nới lỏng dần.
 
                     #
                     reg_loss_1 = F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
