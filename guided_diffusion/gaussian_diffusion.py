@@ -500,7 +500,7 @@ class GaussianDiffusion:
             #print('first cfn: ')
             #plot_cfn_row(a.detach().cpu())
             ### 
-            ''''''
+            '''
             
             eps = eps - (1 - alpha_bar).sqrt() * cfn #(a * coarse_mask[:,None,:,:] * 100) ## Đây chính là - score
             
