@@ -537,16 +537,18 @@ class GaussianDiffusion:
             with th.enable_grad():
                 # Nếu mask_logits_prev không phải None, sử dụng nó làm khởi tạo
                 if mask_logits_prev is not None:
-                    mask = th.nn.Parameter(mask_logits_prev.detach().clone()).requires_grad_(True)
+                    mask_logits = th.nn.Parameter(mask_logits_prev.detach().clone()).requires_grad_(True)
                 else:
-                    mask = th.nn.Parameter(th.ones(B, H, W).cuda()).requires_grad_(True)
+                    mask_logits = th.nn.Parameter(th.ones(B, H, W).cuda()).requires_grad_(True)
 
 
                 # optimizer cho mask_logits
-                optimizer = th.optim.Adam([mask], lr=1e-2)
+                optimizer = th.optim.Adam([mask_logits], lr=1e-2)
 
                 for step in range(10):
                     optimizer.zero_grad()
+
+                    mask = th.sigmoid(mask_logits)  # in (0,1)
 
                     cfn_optim_1 = cfn * mask[:, None, :, :]  # broadcasting channel dimension if needed
                     eps_new = eps - (1 - alpha_bar).sqrt() * cfn_optim_1 * 100
@@ -574,7 +576,9 @@ class GaussianDiffusion:
                     #print(mask_logits.grad.abs().mean())
                     optimizer.step()
 
-            mask = mask.detach()
+            mask_logits = mask_logits.detach()
+            mask = th.sigmoid(mask_logits)  # in (0,1)
+
             plot_cfn_row(mask.cpu())  # visualize mask
 
             cfn = cfn * mask[:, None, :, :] * 100 # áp dụng mask vào cfn
