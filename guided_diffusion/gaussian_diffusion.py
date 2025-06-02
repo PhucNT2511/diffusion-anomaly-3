@@ -495,7 +495,7 @@ class GaussianDiffusion:
             
             saliency = th.abs(th.sum(a, dim=1))
             saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency, th.zeros_like(saliency)))
-            alpha = (1 - t[0]/498.0) #* (1 - selected)
+            alpha = (1 - t[0]/498.0) * (1 - selected)
             coarse_mask = min_max_scaler(saliency * alpha[:,None,None] + (1 - alpha)[:,None,None] * model_kwargs["mask"])
             #print('first cfn: ')
             #plot_cfn_row(a.detach().cpu())
