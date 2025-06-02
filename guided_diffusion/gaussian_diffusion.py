@@ -492,8 +492,8 @@ class GaussianDiffusion:
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
-            saliency = th.abs(th.sum(cfn, dim=1))
-            saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency/model_kwargs["mask"], saliency))
+            saliency = th.abs(th.sum(a, dim=1))
+            saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency, th.zeros_like(saliency)))
             alpha = 1 - t[0]/498.0
             coarse_mask = min_max_scaler(saliency * alpha + (1 - alpha) * model_kwargs["mask"])
             #print('first cfn: ')
@@ -560,14 +560,13 @@ class GaussianDiffusion:
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
                     bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean") * 10 * (1 - t[0]/498.0) # 10 là để scale loss, vì loss này nhỏ hơn loss khác
-
                     
                     # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
-                    reg_loss_2 = mask.mean() ### cái này là ko cần thiết phải min, lúc đầu nên min, về cuối nới lỏng dần.
+                    reg_loss_2 = ((1 - model_kwargs['mask']) * mask).mean() ### cái này là ko cần thiết phải min, lúc đầu nên min, về cuối nới lỏng dần.
 
                     #
-                    reg_loss_1 = 0.01 * F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
-                    #reg_loss_2 = 10 * F.mse_loss(mask, model_kwargs['mask'], reduction='mean')
+                    #reg_loss_1 = 0.01 * F.mse_loss(one_minus_mask[:,None,:,:] * mean_pred, one_minus_mask[:,None,:,:] * x_deterministic, reduction='mean')
+                    reg_loss_1 = 10 * F.mse_loss(mask, model_kwargs['mask'], reduction='mean')
 
                     # tổng loss: tối đa hóa logit đúng, tối thiểu hóa mask
                     total_loss = bce_loss + reg_loss_1 + reg_loss_2 #+ loss_sparsity
