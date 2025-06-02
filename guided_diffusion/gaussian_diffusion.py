@@ -30,6 +30,14 @@ def standardize(img):
     img = (img - mean) / std
     return img
 
+def min_max_scaler(x):
+    x_flat = x.reshape(x.shape[0], -1)
+    x_min = th.min(x_flat, dim=1).values
+    x_max = th.max(x_flat, dim=1).values
+    scale = x_max - x_min
+    x_normalize = (x - x_min[:, None, None]) / scale[:, None, None]
+    return x_normalize
+
 
 def standardizetensor(img):
     mean = img.mean()
@@ -484,10 +492,14 @@ class GaussianDiffusion:
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
+            saliency = th.abs(th.sum(cfn, dim=1))
+            saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency/model_kwargs["mask"], saliency))
+            alpha = 1 - t[0]/498.0
+            coarse_mask = min_max_scaler(saliency * alpha + (1 - alpha) * model_kwargs["mask"])
             #print('first cfn: ')
             #plot_cfn_row(a.detach().cpu())
             ### 
-            eps = eps - (1 - alpha_bar).sqrt() * cfn ## Đây chính là - score
+            eps = eps - (1 - alpha_bar).sqrt() * (a * coarse_mask * 100) ## Đây chính là - score
             
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
@@ -547,7 +559,7 @@ class GaussianDiffusion:
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
-                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean") * 10
+                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean") * 10 * (1-)
 
                     
                     # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
