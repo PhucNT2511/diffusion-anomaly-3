@@ -492,7 +492,7 @@ class GaussianDiffusion:
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
             a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
-            
+            '''
             saliency = th.abs(th.sum(a, dim=1))
             saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency, th.zeros_like(saliency)))
             alpha = (1 - t[0]/498.0) * (1 - selected)
@@ -500,8 +500,9 @@ class GaussianDiffusion:
             #print('first cfn: ')
             #plot_cfn_row(a.detach().cpu())
             ### 
+            '''
             
-            eps = eps - (1 - alpha_bar).sqrt() * (a * coarse_mask[:,None,:,:] * 100) ## Đây chính là - score
+            eps = eps - (1 - alpha_bar).sqrt() * cfn # (a * coarse_mask[:,None,:,:] * 100) ## Đây chính là - score
             
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
