@@ -491,7 +491,7 @@ class GaussianDiffusion:
 
         # Nếu không có classifier hoặc t[0] không nằm trong t_set thì sử dụng cfn ban đầu
         if (classifier is None) or (t[0] not in t_set):
-            a, cfn = cond_fn2(x, self._scale_timesteps(t).long(), **model_kwargs)
+            a, cfn = cond_fn(x, self._scale_timesteps(t).long(), **model_kwargs)
             '''
             saliency = th.abs(th.sum(a, dim=1))
             saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency, th.zeros_like(saliency)))
