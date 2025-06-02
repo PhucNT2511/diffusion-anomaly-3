@@ -499,7 +499,7 @@ class GaussianDiffusion:
             #print('first cfn: ')
             #plot_cfn_row(a.detach().cpu())
             ### 
-            eps = eps - (1 - alpha_bar).sqrt() * (a * coarse_mask * 100) ## Đây chính là - score
+            eps = eps - (1 - alpha_bar).sqrt() * (a * coarse_mask[:,None,:,:] * 100) ## Đây chính là - score
             
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
