@@ -559,7 +559,7 @@ class GaussianDiffusion:
                     mean_pred = xstart_new * th.sqrt(alpha_bar_prev) + th.sqrt(1 - alpha_bar_prev) * eps_new
                                       
                     logits_new    = classifier(mean_pred, self._scale_timesteps(t-1).long())
-                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean") * 10 * (1-)
+                    bce_loss = F.cross_entropy(logits_new, model_kwargs['y'], reduction="mean") * 10 * (1 - t[0]/498.0) # 10 là để scale loss, vì loss này nhỏ hơn loss khác
 
                     
                     # sparsity loss: tổng các phần tử mask (càng ít càng tốt)
