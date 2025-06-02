@@ -495,13 +495,13 @@ class GaussianDiffusion:
             
             saliency = th.abs(th.sum(a, dim=1))
             saliency = min_max_scaler(th.where(model_kwargs["mask"] != 0, saliency, th.zeros_like(saliency)))
-            alpha = (1 - t[0]/498.0) * (1 - selected)
+            alpha = (1 - t[0]/498.0) #* (1 - selected)
             coarse_mask = min_max_scaler(saliency * alpha[:,None,None] + (1 - alpha)[:,None,None] * model_kwargs["mask"])
             #print('first cfn: ')
             #plot_cfn_row(a.detach().cpu())
             ### 
             
-            eps = eps - (1 - alpha_bar).sqrt() * (cfn * 100) ## Đây chính là - score
+            eps = eps - (1 - alpha_bar).sqrt() * (a * coarse_mask[:,None,:,:] * 100) ## Đây chính là - score
             
             out = p_mean_var.copy()
             out["pred_xstart"] = self._predict_xstart_from_eps(x, t, eps) ### Khi eps thay đổi thì x_0 thay đổi
