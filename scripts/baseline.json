@@ -13,5 +13,7 @@
     "scheduler": "CosineAnnealing",
     "lr_min": 1.0000000000000001e-07,
     "weight_decay": 5e-05,
-    "momentum": 0.9
+    "momentum": 0.9,
+    "fold": 2,
+    "transform": false
 }
