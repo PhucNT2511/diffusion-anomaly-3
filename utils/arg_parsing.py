@@ -121,6 +121,12 @@ def parse_args():
         help="Total slices of the input"
     )
     parser.add_argument(
+        "--transform",
+        type=bool,
+        default=False,
+        help="Use transform or not for dataset."
+    )
+    parser.add_argument(
         "-subset_slices",
         "--subset_slices",
         type=int,
