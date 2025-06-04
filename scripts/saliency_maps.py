@@ -12,7 +12,16 @@ from torch.autograd import grad
 import random
 from autoencoder_architectures import *
 import torchvision
-from guided_diffusion.brain_datasets import *
+from guided_diffusion.bratsloader import *
+from guided_diffusion.script_util import (
+    NUM_CLASSES,
+    model_and_diffusion_defaults,
+    classifier_defaults,
+    create_classifier,
+    create_model_and_diffusion,
+    add_dict_to_argparser,
+    args_to_dict,
+)
 from torch.utils.data import DataLoader
 import imageio
 import skimage
@@ -49,42 +58,39 @@ width = 256
 channels = 4
 args.num_workers = 4
 
-train_dataset = BRATSDataset(
-                mode="train", 
-                fold=1, 
-                transforms=None,
-                only_positive = False,
-                only_negative = False)
-
-val_dataset = BRATSDataset(
-                mode="test", 
-                fold=1, 
-                transforms=None,
-                only_positive = False,
-                only_negative = False)
-
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
-val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
+val_loader = torch.utils.data.DataLoader(
+    val_ds,
+    batch_size= 1,
+    shuffle=False)
 
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(args.seed)
     torch.backends.cudnn.deterministic = True
 
 ################################################################################## Model classifier Resnet50
+classifier_path = f"/kaggle/input/brats20-models-fold2/modelcls020000.pt"
+model = create_classifier(
+    image_size=256,
+    classifier_use_fp16=False,
+    classifier_width=32,
+    classifier_depth=4,
+    classifier_attention_resolutions="32,16,8",
+    classifier_use_scale_shift_norm=True,
+    classifier_resblock_updown=True,
+    classifier_pool="attention",
+    classifier_dropout=0.0,
+    dataset='brats' ## Đổi thành cái khác
+)
 
-model = torchvision.models.resnet50(progress=False)
-model.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3,bias=False)
-model.fc = nn.Linear(2048, 2)
+print("loading classifier model...")
+model.load_state_dict(
+    dist_util.load_state_dict(classifier_path)
+)
 
 model = model.to(device)
 if args.num_gpus_to_use > 1:
     model = nn.DataParallel(model)
-
-baseline_filepath, _, _ = build_experiment_folder(
-    experiment_name='baseline_classifier',
-    log_path=args.logs_path + "/" + "epochs_" + str(args.max_epochs),
-)
-_ = restore_model(restore_fields={"model": model}, path='/kaggle/input/brats21-dataset-15k-set-1/cls/cls', device=device, best=True)
 
 model.eval()
 
@@ -103,7 +109,7 @@ autoencoder_filepath, _, _ = build_experiment_folder(
     log_path=args.logs_path + "/" + "epochs_" + str(args.max_epochs),
 
 )
-_ = restore_model(restore_fields={"model": ae}, path='/kaggle/input/brats21-dataset-15k-set-1/autoencoder/autoencoder', device=device, best=True)
+_ = restore_model(restore_fields={"model": ae}, path='/kaggle/input/autoencoder-acat-brats20/autoencoder', device=device, best=True)
 
 ae.eval()
 
@@ -121,13 +127,14 @@ def to_numpy(z):
 alpha = 100
 beta = 0.001
 m = nn.Softmax(dim=-1)
+
 ################ By training 20 times, we can calculate the region of anomaly -- we train z here (ohhh) by gradient descent
-def compute_counterfactual(z, z0, targets, criterion_class = nn.CrossEntropyLoss(),  criterion_norm = nn.L1Loss()):
+def compute_counterfactual(z, z0, targets, t0, criterion_class = nn.CrossEntropyLoss(),  criterion_norm = nn.L1Loss()):
     for i in range(20):
         # print(i)
         z = to_tensor_grad(z, requires_grad=True)
         z_0 = to_tensor_grad(z0)
-        logits = model(ae.decoder(z))
+        logits = model(ae.decoder(z),t0)
         saliency_loss = criterion_class(input=logits, target=targets)
         distance = criterion_norm(z, z_0)
         # print('loss', saliency_loss, 'distance',distance, 'prob', m(logits)[:, 1])
@@ -155,11 +162,12 @@ if not os.path.exists(saliency_root):
     os.makedirs(saliency_root)
 
 ### Make saliency_maps for 4 levels one time
-for loader in [train_loader, val_loader]:
-    for i, (inputs, _,_, ids) in enumerate(loader):
-            name = ids #####
-            print(name)
+for loader in [val_loader]:
+    for i, (inputs, _,_, _) in enumerate(loader):
+            print(f"Sample {i}:")
             inputs = inputs.to(device)
+            #classes = torch.randint(low=0, high=1, size=(1,), device=device)
+            t0 = torch.randint(low=0, high=1, size=(1,), device=device)
 
             im1_enc = inputs
             im2 = ae.decoder(ae.encoder(im1_enc)).detach().to('cpu')
@@ -169,12 +177,12 @@ for loader in [train_loader, val_loader]:
 
             # positive counterfactual
             targets = (torch.ones([inputs.shape[0]], dtype=torch.long)).to(device)
-            z_out = compute_counterfactual(z.copy(), z0.copy(), targets)
+            z_out = compute_counterfactual(z.copy(), z0.copy(), targets, t0)
             dimage1 = compute_saliency(z_out, im2.clone())
 
             # negative counterfactual
             targets = (torch.zeros([inputs.shape[0]], dtype=torch.long)).to(device)
-            z_out = compute_counterfactual(z.copy(), z0.copy(), targets)
+            z_out = compute_counterfactual(z.copy(), z0.copy(), targets, t0)
             dimage2 = compute_saliency(z_out, im2.clone())
 
 
@@ -183,12 +191,14 @@ for loader in [train_loader, val_loader]:
 
             dimage = (dimage1+dimage2)/2
             dimage = dimage*(1.0 / torch.amax(dimage, dim=(-3, -2, -1), keepdim=True))
+
+            #### Lưu một cái thôi và minmaxscaler, dùng difftot, scipy ..... rồi dùng binary của otsu
             ############## Dimage tìm ra có 4 chiều
             for j in range(inputs.shape[0]):
-                for i, level in enumerate(['flair', 't1', 't2', 't1ce']):
-                    path = os.path.join(saliency_root, name[j][14:-4] + level + '.png')
+                for k, level in enumerate(['flair', 't1', 't2', 't1ce']):
+                    path = os.path.join(saliency_root, f"sample_{i}_" + level + '.png')
                     os.makedirs(os.path.dirname(path), exist_ok=True)
-                    imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,i, :, :]))
+                    imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,k, :, :]))
 
 ########## 
 
