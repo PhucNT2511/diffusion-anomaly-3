@@ -151,7 +151,8 @@ def compute_counterfactual(z, z0, targets, t0, criterion_class = nn.CrossEntropy
 def compute_saliency(z, im2):
     shifted_image_1 = ae.decoder(z)
     shifted_image_1 = shifted_image_1.detach().cpu()
-    dimage = torch.abs(im2.cpu()- shifted_image_1)
+    #dimage = torch.abs(im2.cpu()- shifted_image_1)
+    dimage = torch.abs(torch.sum(im2.cpu() - shifted_image_1, dim = 1))
 
     return dimage
 
@@ -192,15 +193,16 @@ for loader in [val_loader]:
 
             #dimage = (dimage1+dimage2)/2
             dimage = dimage1
-            dimage = dimage*(1.0 / torch.amax(dimage, dim=(-3, -2, -1), keepdim=True))
+            dimage = dimage*(1.0 / torch.amax(dimage, dim=(-2, -1), keepdim=True))
 
             #### Lưu một cái thôi và minmaxscaler, dùng difftot, scipy ..... rồi dùng binary của otsu
             ############## Dimage tìm ra có 4 chiều
             for j in range(inputs.shape[0]):
-                for k, level in enumerate(['flair', 't1', 't2', 't1ce']):
-                    path = os.path.join(saliency_root, f"sample_{i}_" + level + '.png')
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    imageio.imwrite(path, skimage.img_as_ubyte(dimage[j,k, :, :]))
+                #for k, level in enumerate(['flair', 't1', 't2', 't1ce']):
+                    #path = os.path.join(saliency_root, f"sample_{i}_" + level + '.png')
+                path = os.path.join(saliency_root, f"sample_{i}_.png")
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                imageio.imwrite(path, skimage.img_as_ubyte(dimage[j, :, :]))
 
 ########## 
 
