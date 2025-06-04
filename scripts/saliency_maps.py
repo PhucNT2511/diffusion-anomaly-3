@@ -176,21 +176,22 @@ for loader in [val_loader]:
             z = to_numpy(ae.encoder(im1_enc))
             z0 = z
 
-            # positive counterfactual
-            targets = (torch.ones([inputs.shape[0]], dtype=torch.long)).to(device)
-            z_out = compute_counterfactual(z.copy(), z0.copy(), targets, t0)
-            dimage1 = compute_saliency(z_out, im2.clone())
-
             # negative counterfactual
             targets = (torch.zeros([inputs.shape[0]], dtype=torch.long)).to(device)
             z_out = compute_counterfactual(z.copy(), z0.copy(), targets, t0)
+            dimage1 = compute_saliency(z_out, im2.clone())
+
+            '''
+            # positive counterfactual
+            targets = (torch.ones([inputs.shape[0]], dtype=torch.long)).to(device)
+            z_out = compute_counterfactual(z.copy(), z0.copy(), targets, t0)
             dimage2 = compute_saliency(z_out, im2.clone())
+            '''
+            #dimage1 = dimage1*(1.0 / torch.amax(dimage1, dim=(-3, -2, -1), keepdim=True))
+            #dimage2 = dimage2*(1.0 / torch.amax(dimage2, dim=(-3, -2, -1), keepdim=True))
 
-
-            dimage1 = dimage1*(1.0 / torch.amax(dimage1, dim=(-3, -2, -1), keepdim=True))
-            dimage2 = dimage2*(1.0 / torch.amax(dimage2, dim=(-3, -2, -1), keepdim=True))
-
-            dimage = (dimage1+dimage2)/2
+            #dimage = (dimage1+dimage2)/2
+            dimage = dimage1
             dimage = dimage*(1.0 / torch.amax(dimage, dim=(-3, -2, -1), keepdim=True))
 
             #### Lưu một cái thôi và minmaxscaler, dùng difftot, scipy ..... rồi dùng binary của otsu
