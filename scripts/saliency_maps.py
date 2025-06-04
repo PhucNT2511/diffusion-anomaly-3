@@ -70,7 +70,7 @@ if torch.cuda.is_available():
     torch.backends.cudnn.deterministic = True
 
 ################################################################################## Model classifier Resnet50
-classifier_path = f"/kaggle/input/brats20-models-fold2/modelcls020000.pt"
+classifier_path = f"/kaggle/input/regularization-classifier/original_1st_divers_no_augment_model020000.pt"
 model = create_classifier(
     image_size=256,
     classifier_use_fp16=False,
