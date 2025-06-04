@@ -159,6 +159,7 @@ def restore_model_from_path(restore_fields, path, device="cpu"):
     checkpoint = torch.load(
         path,
         map_location=lambda storage, loc: storage,
+        weights_only=False
     )
     print("device: {} torch.cuda.device_count(): {}".format(device, torch.cuda.device_count()))
     for name, field in restore_fields.items():
@@ -199,6 +200,7 @@ def restore_model(restore_fields, path, epoch=None, device="cpu", best = False):
         checkpoint = torch.load(
             "{}/{}".format(path, checkpoint_name),
             map_location=lambda storage, loc: storage,
+            weights_only=False
         )
         print("device: {} torch.cuda.device_count(): {}".format(device, torch.cuda.device_count()))
         for name, field in restore_fields.items():
