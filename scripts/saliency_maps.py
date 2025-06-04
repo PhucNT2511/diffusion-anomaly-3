@@ -13,6 +13,7 @@ import random
 from autoencoder_architectures import *
 import torchvision
 from guided_diffusion.bratsloader import *
+from guided_diffusion import dist_util
 from guided_diffusion.script_util import (
     NUM_CLASSES,
     model_and_diffusion_defaults,
