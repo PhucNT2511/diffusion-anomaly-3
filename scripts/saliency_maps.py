@@ -59,7 +59,7 @@ width = 256
 channels = 4
 args.num_workers = 4
 
-val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=False)
+val_ds = BRATSDataset(mode="test", fold=args.fold, test_flag=True)
 val_loader = torch.utils.data.DataLoader(
     val_ds,
     batch_size= 1,
