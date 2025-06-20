@@ -75,17 +75,7 @@ def main():
         scale = x_max - x_min
         x_normalize = (x - x_min[:, None, None]) / scale[:, None, None]
         return x_normalize
-    '''
-    def saliency_map(x_0,classifier):
-        t_0 = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
-        ds_label = th.randint(low=0, high=1, size=(1,), device=dist_util.dev())
-        x0_grad, _ = cond_fn(x_0,classifier,t_0,ds_label)
-        grad_img = th.abs(th.sum(x0_grad, dim=1)) ## from (B,C,H,W) to (B,H,W) because we calculate the sum of 4 dimensions
-        coarse_mask = min_max_scaler(grad_img) ## mask  
-        # không dùng được vì ko truyền ngược: gaussian_blur = GaussianBlur(15, 5)
-        soft_mask = th.sigmoid((0.4 - coarse_mask) * 1000) #ngưỡng 0.4 - 1/(1+e^-t)
-        return soft_mask
-    '''
+    
 
     ###
     args = create_argparser().parse_args()
@@ -104,7 +94,12 @@ def main():
     model, diffusion = create_classifier_and_diffusion(
         **args_to_dict(args, classifier_and_diffusion_defaults().keys()),
     )
+    model_base, _ = create_classifier_and_diffusion(
+        **args_to_dict(args, classifier_and_diffusion_defaults().keys()),
+    )
+
     model.to(dist_util.dev())
+    model_base.to(dist_util.dev())
     if args.noised:
         schedule_sampler = create_named_schedule_sampler(
             args.schedule_sampler, diffusion, maxt=args.max_L
@@ -122,9 +117,15 @@ def main():
                     args.resume_checkpoint, map_location=dist_util.dev()
                 )
             )
+            model_base.load_state_dict(
+                dist_util.load_state_dict(
+                    args.resume_checkpoint, map_location=dist_util.dev()
+                )
+            )
 
     # Needed for creating correct EMAs and fp16 parameters.
     dist_util.sync_params(model.parameters())
+    dist_util.sync_params(model_base.parameters())
 
     mp_trainer = MixedPrecisionTrainer(
         model=model, use_fp16=args.classifier_use_fp16, initial_lg_loss_scale=16.0
@@ -138,6 +139,15 @@ def main():
     transform = data_transform if args.transform else None
     model = DDP(
         model,
+        device_ids=[dist_util.dev()],
+        output_device=dist_util.dev(),
+        broadcast_buffers=False,
+        bucket_cap_mb=128,
+        find_unused_parameters=False,
+    )
+
+    model_base = DDP(
+        model_base,
         device_ids=[dist_util.dev()],
         output_device=dist_util.dev(),
         broadcast_buffers=False,
@@ -234,9 +244,8 @@ def main():
     # ---------------------------------------------
     '''
 
-    lambda_div = 0.01 ## must be very small, because the cls_loss will be small after some iters, so if centralized loss is big, there may lead to underfitting
-    ### or may be large if you mean() in L_2 loss
-
+    
+    '''
     def patch_average_replace(a: th.Tensor, patch_size: int = 4):
         """
         Replace each patch (patch_size x patch_size) in (B, C, H, W)
@@ -263,8 +272,10 @@ def main():
         out = out[:, :, :H, :W]  # Remove padding
 
         return out
+    '''
 
-    def forward_backward_log(data_load, data_loader, prefix="train"):
+    lambda_div = 0.01 
+    def forward_backward_log(data_load, data_loader, step, prefix="train"):
         try:
             batch, _, labels, masks = next(data_loader)
         except:
@@ -278,10 +289,6 @@ def main():
         batch_0 = batch
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
-            #t = th.full((batch.shape[0],), args.max_L - 2, dtype=th.long, device=dist_util.dev())   ##### Tại 1000 - 2= 998
-            #max_L_minus_t_square = ((1000 - t) ** 2).to(t.dtype).to(t.device)
-            #max_L_minus_t = (1000 - t).to(t.dtype).to(t.device)
-            # print(f"{prefix}: batch_shape: {batch.shape} - noise_levels: {t}") ### max_L = 1000
             batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
@@ -291,7 +298,7 @@ def main():
             )
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
-        ############################################################### Loss
+        #Loss
         for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes) in enumerate(
             split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes)
         ):
@@ -299,29 +306,29 @@ def main():
             logits = model(sub_batch, timesteps=sub_t)         
             loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
             
-            # Tính diversity loss trên các tầng Conv2d đã chọn:
-            '''
-            loss_div = 0.0
             
-            for lname, layer_module in layers_to_finetune[:1]:
-                loss_div = loss_div + diversity_loss(layer_module)
-            '''
-            
-            ### Tính loss túm tụm   
+            ### Tính đạo hàm từ model base
             sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
-            logits_0 = model(sub_batch_0, sub_t_0)
-            log_probs = F.log_softmax(logits_0, dim=-1)
-            selected = log_probs[range(len(logits_0)), sub_classes.view(-1)]
+            logits_0 = model_base(sub_batch_0, sub_t_0)
+            log_probs_0 = F.log_softmax(logits_0, dim=-1)
+            selected_0 = log_probs_0[range(len(logits_0)), sub_classes.view(-1)]
+            a_0 = th.autograd.grad(selected_0.sum(), sub_batch_0)[0]
+            grad_img_0 = min_max_scaler(th.abs(th.sum(a_0, dim=1)))
 
-            a = th.autograd.grad(selected.sum(), sub_batch_0, create_graph=True)[0]
-            mean_a = patch_average_replace(a)
-            loss_centralization = th.norm((a - mean_a), p=2, dim=(1, 2, 3))
-            
+            ### Tính đạo hàm từ model
+            sub_batch = sub_batch.detach().requires_grad_(True)     
+            logits = model(sub_batch, sub_t)
+            log_probs = F.log_softmax(logits, dim=-1)
+            selected = log_probs[range(len(logits)), sub_classes.view(-1)]
+            a = th.autograd.grad(selected.sum(), sub_batch, create_graph=True)[0]
+            grad_img = th.abs(a)
 
-            print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
-            print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
-            # Tổng loss: kết hợp loss phân loại và diversity loss
-            # --- Kiểm tra gradient của từng loss thành phần --- #
+            loss_centralization = (1 - grad_img_0)[:, None, :, :] * grad_img * (sub_t[:, None, None, None] / args.max_L)  # (B, C, H, W)
+            loss_centralization = loss_centralization.mean(dim=(1, 2, 3))  # trung bình theo batch
+
+            if step <= 100:
+                print(f"loss_cls {loss_cls} - loss_centralization {loss_centralization}")
+                print(f"loss_cls.requires_grad: {loss_cls.requires_grad} - loss_centralization.requires_grad: {loss_centralization.requires_grad}" )
  
             loss = loss_cls + loss_centralization * lambda_div
             
@@ -376,7 +383,8 @@ def main():
             set_annealed_lr(opt, args.lr, (step + resume_step) / args.iterations)
         # print('step', step + resume_step)
         
-        losses = forward_backward_log(datal, data) #losses for each batch: data = iter(datal)
+
+        losses = forward_backward_log(datal, data, step) #losses for each batch: data = iter(datal)
 
         loss_epoch += losses['train_loss'].sum()
         acc_epoch += losses['train_acc@1'].sum()
@@ -469,10 +477,10 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=16,
+        batch_size=32,
         microbatch=-1,
         schedule_sampler="uniform",
-        resume_checkpoint="",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
+        resume_checkpoint="/kaggle/input/regularization-classifier/original_1st_divers_no_augment_model020000.pt",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
         log_interval=10,
         eval_interval=1000,
         save_interval=10000,
