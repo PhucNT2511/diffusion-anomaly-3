@@ -38,6 +38,7 @@ from guided_diffusion.script_util import (
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 
+'''
 # Hàm diversity_loss --> kernel diversity
 def diversity_loss(conv_layer):
     # conv_layer.weight: (out_channels, in_channels, kernel_height, kernel_width)
@@ -50,6 +51,7 @@ def diversity_loss(conv_layer):
     loss = th.sum((sim_matrix * (1 - diag))**2)
     num_pairs = N * (N - 1)
     return loss / num_pairs
+'''
 
 def main():
 
@@ -477,7 +479,7 @@ def create_argparser():
         lr=1e-4,
         weight_decay=0.0,
         anneal_lr=True,
-        batch_size=32,
+        batch_size= 8,
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="/kaggle/input/regularization-classifier/original_1st_divers_no_augment_model020000.pt",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
