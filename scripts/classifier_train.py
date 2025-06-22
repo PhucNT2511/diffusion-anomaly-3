@@ -300,7 +300,7 @@ def main():
 
     grad_img_0_list = []
     for point in tqdm(ds):
-        image = point['image']
+        image = point[0]
         grad_img_0_tensor = calculate_grad_x0(image, model=model_base, t_0=th.tensor([[0]]), y=th.tensor([0]))
         grad_img_0_list.append(grad_img_0_tensor)
 
@@ -315,9 +315,9 @@ def main():
             return len(self.original_dataset)
 
         def __getitem__(self, idx):
-            item = self.original_dataset[idx]
-            item['grad_img_0'] = self.grad_img_0[idx]
-            return item
+            image, cond, label, mask = self.original_dataset[idx]
+            grad = self.grad_img_0[idx]
+            return image, cond, label, mask, grad
         
     wrapped_ds = BRATSDatasetWithGrad(ds, grad_img_0_all)
     datal = th.utils.data.DataLoader(wrapped_ds, batch_size=args.batch_size, shuffle=True)
