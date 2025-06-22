@@ -281,7 +281,7 @@ def main():
         return out
     '''
 
-    def calculate_grad_x0(datapoint, model=model_base, t_0=th.tensor([[0]]), y=th.tensor([[0]])):
+    def calculate_grad_x0(datapoint, model=model_base, t_0=th.tensor([0]), y=th.tensor([0])):
         with th.enable_grad():
             sub_batch_0 = th.tensor(datapoint).unsqueeze(0).to(dist_util.dev()).detach().requires_grad_(True)
             sub_t_0 = t_0.to(dist_util.dev())
@@ -299,9 +299,10 @@ def main():
         return grad_img_0.squeeze(0).cpu()  # return (H, W)
 
     grad_img_0_list = []
+    model_base.eval()
     for point in tqdm(ds):
         image = point[0]
-        grad_img_0_tensor = calculate_grad_x0(image, model=model_base, t_0=th.tensor([[0]]), y=th.tensor([0]))
+        grad_img_0_tensor = calculate_grad_x0(image, model=model_base, t_0=th.tensor([0]), y=th.tensor([0]))
         grad_img_0_list.append(grad_img_0_tensor)
 
     grad_img_0_all = th.stack(grad_img_0_list)  # shape (N, H, W)
