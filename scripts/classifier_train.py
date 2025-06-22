@@ -283,7 +283,7 @@ def main():
 
     def calculate_grad_x0(datapoint, model=model_base, t_0=th.tensor([[0]]), y=th.tensor([[0]])):
         with th.enable_grad():
-            sub_batch_0 = datapoint.unsqueeze(0).to(dist_util.dev()).detach().requires_grad_(True)
+            sub_batch_0 = th.tensor(datapoint).unsqueeze(0).to(dist_util.dev()).detach().requires_grad_(True)
             sub_t_0 = t_0.to(dist_util.dev())
             sub_classes = y.to(dist_util.dev())
 
