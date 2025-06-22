@@ -38,6 +38,9 @@ from guided_diffusion.script_util import (
 )
 from guided_diffusion.train_util import parse_resume_step_from_filename, log_loss_dict
 
+from torchvision.transforms import GaussianBlur
+from tqdm import tqdm
+
 '''
 # Hàm diversity_loss --> kernel diversity
 def diversity_loss(conv_layer):
@@ -162,11 +165,13 @@ def main():
     if args.dataset == 'brats':
         print("Training on BRATS-20 dataset")
         ds = BRATSDataset(mode="train", fold=args.fold, test_flag=False, transforms=transform)
+        '''
         datal = th.utils.data.DataLoader(
             ds,
             batch_size=args.batch_size,
             shuffle=True)
         data = iter(datal)
+        '''
 
     # elif args.dataset == 'lits':
     #     print("Training on LiTS dataset")
@@ -276,18 +281,61 @@ def main():
         return out
     '''
 
+    def calculate_grad_x0(datapoint, model=model_base, t_0=th.tensor([[0]]), y=th.tensor([[0]])):
+        with th.enable_grad():
+            sub_batch_0 = datapoint.unsqueeze(0).to(dist_util.dev()).detach().requires_grad_(True)
+            sub_t_0 = t_0.to(dist_util.dev())
+            sub_classes = y.to(dist_util.dev())
+
+            logits_0 = model(sub_batch_0, sub_t_0)
+            log_probs_0 = F.log_softmax(logits_0, dim=-1)
+            selected_0 = log_probs_0[range(len(logits_0)), sub_classes.view(-1)]
+            a_0 = th.autograd.grad(selected_0.sum(), sub_batch_0)[0]
+
+            grad_img_0 = min_max_scaler(th.abs(th.sum(a_0, dim=1)))  # (1, H, W)
+            gaussian_blur = GaussianBlur(15, 5)
+            grad_img_0 = min_max_scaler(gaussian_blur(grad_img_0))
+
+        return grad_img_0.squeeze(0).cpu()  # return (H, W)
+
+    grad_img_0_list = []
+    for point in tqdm(ds):
+        image = point['image']
+        grad_img_0_tensor = calculate_grad_x0(image, model=model_base, t_0=th.tensor([[0]]), y=th.tensor([0]))
+        grad_img_0_list.append(grad_img_0_tensor)
+
+    grad_img_0_all = th.stack(grad_img_0_list)  # shape (N, H, W)
+
+    class BRATSDatasetWithGrad(th.utils.data.Dataset):
+        def __init__(self, original_dataset, grad_img_0):
+            self.original_dataset = original_dataset
+            self.grad_img_0 = grad_img_0  # tensor (N, H, W)
+
+        def __len__(self):
+            return len(self.original_dataset)
+
+        def __getitem__(self, idx):
+            item = self.original_dataset[idx]
+            item['grad_img_0'] = self.grad_img_0[idx]
+            return item
+        
+    wrapped_ds = BRATSDatasetWithGrad(ds, grad_img_0_all)
+    datal = th.utils.data.DataLoader(wrapped_ds, batch_size=args.batch_size, shuffle=True)
+    data = iter(datal)
+        
     lambda_div = 0.01 
     def forward_backward_log(data_load, data_loader, step, prefix="train"):
         try:
-            batch, _, labels, masks = next(data_loader)
+            batch, _, labels, masks, grad_img_0 = next(data_loader)
         except:
             data_loader = iter(data_load)
-            batch, _, labels, masks = next(data_loader)
+            batch, _, labels, masks, grad_img_0 = next(data_loader)
 
         # print('labels', labels)
         batch = batch.to(dist_util.dev())
         labels= labels.to(dist_util.dev())
         masks = masks.to(dist_util.dev())
+        grad_img_0 = grad_img_0.to(dist_util.dev())  # (B, H, W)
         batch_0 = batch
         if args.noised:
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
@@ -301,14 +349,14 @@ def main():
         t_0 = th.zeros(batch_0.shape[0], dtype=th.long, device=dist_util.dev())
 
         #Loss
-        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes) in enumerate(
-            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes)
+        for i, (sub_batch_0, sub_batch, sub_labels, sub_t, sub_t_0, sub_classes, sub_grad_img_0) in enumerate(
+            split_microbatches(args.microbatch, batch_0, batch, labels, t, t_0, classes, grad_img_0)
         ):
             #
             logits = model(sub_batch, timesteps=sub_t)         
             loss_cls = F.cross_entropy(logits, sub_labels, reduction="none")
             
-            
+            ''''
             ### Tính đạo hàm từ model base
             sub_batch_0 = sub_batch_0.detach().requires_grad_(True)     
             logits_0 = model_base(sub_batch_0, sub_t_0)
@@ -316,6 +364,9 @@ def main():
             selected_0 = log_probs_0[range(len(logits_0)), sub_classes.view(-1)]
             a_0 = th.autograd.grad(selected_0.sum(), sub_batch_0)[0]
             grad_img_0 = min_max_scaler(th.abs(th.sum(a_0, dim=1)))
+            gaussian_blur = GaussianBlur(15, 5)
+            grad_img_0 = min_max_scaler(gaussian_blur(grad_img_0))
+            '''
 
             ### Tính đạo hàm từ model
             sub_batch = sub_batch.detach().requires_grad_(True)     
@@ -325,7 +376,7 @@ def main():
             a = th.autograd.grad(selected.sum(), sub_batch, create_graph=True)[0]
             grad_img = th.abs(a)
 
-            loss_centralization = (1 - grad_img_0)[:, None, :, :] * grad_img * (sub_t[:, None, None, None] / args.max_L)  # (B, C, H, W)
+            loss_centralization = (1 - sub_grad_img_0)[:, None, :, :] * grad_img * (sub_t[:, None, None, None] / args.max_L)  # (B, C, H, W)
             loss_centralization = loss_centralization.mean(dim=(1, 2, 3))  # trung bình theo batch
 
             if step <= 100:
