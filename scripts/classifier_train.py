@@ -324,7 +324,7 @@ def main():
     datal = th.utils.data.DataLoader(wrapped_ds, batch_size=args.batch_size, shuffle=True)
     data = iter(datal)
         
-    lambda_div = 0.01 
+    lambda_div = 0.1 
     def forward_backward_log(data_load, data_loader, step, prefix="train"):
         try:
             batch, _, labels, masks, grad_img_0 = next(data_loader)
@@ -377,7 +377,8 @@ def main():
             a = th.autograd.grad(selected.sum(), sub_batch, create_graph=True)[0]
             grad_img = th.abs(a)
 
-            loss_centralization = (1 - sub_grad_img_0)[:, None, :, :] * grad_img * (sub_t[:, None, None, None] / args.max_L)  # (B, C, H, W)
+            sub_t_sqared = sub_t ** 2  # (B, 1, 1, 1)
+            loss_centralization = (1 - sub_grad_img_0)[:, None, :, :] * grad_img * (sub_t_sqared[:, None, None, None] / args.max_L)  # (B, C, H, W)
             loss_centralization = loss_centralization.mean(dim=(1, 2, 3))  # trung bình theo batch
 
             if step <= 100:
@@ -535,8 +536,8 @@ def create_argparser():
         microbatch=-1,
         schedule_sampler="uniform",
         resume_checkpoint="/kaggle/input/regularization-classifier/original_1st_divers_no_augment_model020000.pt",#f"/kaggle/input/brats20-models-fold2/modelcls020000.pt",
-        log_interval=10,
-        eval_interval=1000,
+        log_interval=100,
+        eval_interval=5000,
         save_interval=10000,
         dataset='brats',
         max_L=1000,
