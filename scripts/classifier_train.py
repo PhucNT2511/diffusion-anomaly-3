@@ -324,7 +324,7 @@ def main():
     datal = th.utils.data.DataLoader(wrapped_ds, batch_size=args.batch_size, shuffle=True)
     data = iter(datal)
         
-    lambda_div = 0.1 
+    lambda_div = 1
     def forward_backward_log(data_load, data_loader, step, prefix="train"):
         try:
             batch, _, labels, masks, grad_img_0 = next(data_loader)
