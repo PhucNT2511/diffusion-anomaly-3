@@ -295,6 +295,7 @@ def main():
             grad_img_0 = min_max_scaler(th.abs(th.sum(a_0, dim=1)))  # (1, H, W)
             gaussian_blur = GaussianBlur(15, 5)
             grad_img_0 = min_max_scaler(gaussian_blur(grad_img_0))
+            grad_img_0 = th.where(grad_img_0.clone().detach() < 0.4, 0, 1)
 
         return grad_img_0.squeeze(0).cpu()  # return (H, W)
 
